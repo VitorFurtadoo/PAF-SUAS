@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, TrendingUp, AlertCircle, FilePlus, Loader2, Filter, ArrowUpDown, Search, Calendar, Clock } from 'lucide-react';
+import { Users, FileText, TrendingUp, AlertCircle, FilePlus, Loader2, Filter, ArrowUpDown, Search, Calendar, Clock, Plus } from 'lucide-react';
 import { getPAFs } from '../services/pafService';
 import { useAuth } from '../AuthProvider';
 
 interface DashboardProps {
   onNewPlan: () => void;
+  onNewFicha: () => void;
 }
 
-export default function Dashboard({ onNewPlan }: DashboardProps) {
+export default function Dashboard({ onNewPlan, onNewFicha }: DashboardProps) {
   const { user, userProfile } = useAuth();
   const [pafs, setPafs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,13 +129,22 @@ export default function Dashboard({ onNewPlan }: DashboardProps) {
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 leading-tight">Painel de Acompanhamento Familiar</h1>
           <p className="text-slate-500 mt-2 text-sm md:text-base">Bem-vindo(a), {userProfile?.name} <span className="hidden md:inline">({userProfile?.role} - {userProfile?.unidadeCras})</span></p>
         </div>
-        <button 
-          onClick={onNewPlan}
-          className="w-full lg:w-auto bg-brand-primary hover:bg-brand-secondary transition-colors text-white font-bold py-3.5 px-6 rounded-2xl shadow-xl shadow-brand-primary/20 flex items-center justify-center space-x-2 active:scale-95 transition-transform"
-        >
-          <FilePlus size={20} />
-          <span>Novo Plano</span>
-        </button>
+        <div className="flex gap-3 w-full lg:w-auto">
+          <button 
+            onClick={onNewFicha}
+            className="flex-1 lg:w-auto bg-emerald-600 hover:bg-emerald-700 transition-colors text-white font-bold py-3.5 px-6 rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center space-x-2 active:scale-95 transition-transform"
+          >
+            <Plus size={20} />
+            <span>Nova Ficha</span>
+          </button>
+          <button 
+            onClick={onNewPlan}
+            className="flex-1 lg:w-auto bg-brand-primary hover:bg-brand-secondary transition-colors text-white font-bold py-3.5 px-6 rounded-2xl shadow-xl shadow-brand-primary/20 flex items-center justify-center space-x-2 active:scale-95 transition-transform"
+          >
+            <FilePlus size={20} />
+            <span>Novo Plano</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">

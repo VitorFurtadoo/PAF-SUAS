@@ -11,14 +11,20 @@ import {
   MoreVertical,
   ChevronRight,
   ClipboardCheck,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import { getFichasAtendimento, saveFichaAtendimento, deleteFichaAtendimento } from '../services/fichaAtendimentoService';
+import { generateFichaAtendimentoPdf } from '../utils/generatePdf';
 import type { FichaAtendimento } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function FichasAtendimento() {
+interface FichasAtendimentoProps {
+  defaultCreate?: boolean;
+}
+
+export default function FichasAtendimento({ defaultCreate = false }: FichasAtendimentoProps) {
   const { user, userProfile } = useAuth();
   const [fichas, setFichas] = useState<FichaAtendimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +33,12 @@ export default function FichasAtendimento() {
   const [selectedFicha, setSelectedFicha] = useState<FichaAtendimento | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
+
+  useEffect(() => {
+    if (defaultCreate) {
+      handleOpenPanel('create');
+    }
+  }, [defaultCreate]);
 
   // Form states
   const [formData, setFormData] = useState<Partial<FichaAtendimento>>({
@@ -213,12 +225,24 @@ export default function FichasAtendimento() {
                 <button 
                   onClick={() => handleOpenPanel('edit', ficha)}
                   className="p-2 bg-slate-50 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all"
+                  title="Editar"
                 >
                   <Edit2 size={16} />
                 </button>
                 <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    generateFichaAtendimentoPdf(ficha);
+                  }}
+                  className="p-2 bg-slate-50 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
+                  title="Exportar PDF"
+                >
+                  <Download size={16} />
+                </button>
+                <button 
                   onClick={() => handleDelete(ficha.id!)}
                   className="p-2 bg-slate-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                  title="Excluir"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -389,6 +413,12 @@ export default function FichasAtendimento() {
                       </div>
 
                       <div className="pt-8 flex gap-3">
+                         <button
+                           onClick={() => generateFichaAtendimentoPdf(selectedFicha)}
+                           className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-emerald-600/20"
+                         >
+                           <Download size={18} /> Exportar PDF
+                         </button>
                          <button
                            onClick={() => setPanelMode('edit')}
                            className="flex-1 bg-brand-secondary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-brand-secondary/20"

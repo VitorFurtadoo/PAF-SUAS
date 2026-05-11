@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { PAFData } from '../types';
+import type { PAFData, FichaAtendimento } from '../types';
 
 export const generatePAFPdf = async (data: PAFData) => {
   const doc = new jsPDF('p', 'pt', 'a4');
@@ -505,6 +505,153 @@ export const generateAcoesCrasPdf = async (data: any) => {
   });
 
   doc.save(`Acoes_CRAS_${data.mesReferencia}_${data.anoReferencia}.pdf`);
+};
+
+export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
+  const doc = new jsPDF('p', 'pt', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  let y = margin;
+
+  let logoDataUrl: string | null = null;
+  try {
+    const imgResult = await new Promise<{ dataUrl: string }>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve({ dataUrl: canvas.toDataURL('image/png') });
+        } else {
+          reject(new Error('No canvas context'));
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = '/logo-semas.png';
+    });
+    logoDataUrl = imgResult.dataUrl;
+  } catch (e) {
+    console.warn('Could not load logo:', e);
+  }
+
+  // Colors
+  const primaryColor: [number, number, number] = [46, 125, 50]; // Dark green
+  const textColor: [number, number, number] = [51, 51, 51];
+
+  // Header Title
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(0, 0, pageWidth, 70, 'F');
+  
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text("FICHA DE ATENDIMENTO SOCIOASSISTENCIAL", pageWidth / 2, 45, { align: "center" });
+  
+  y = 100;
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+  // Content
+  autoTable(doc, {
+    startY: y,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 8 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+    head: [['DADOS DO ATENDIMENTO']],
+    body: [
+      [`UNIDADE CRAS: ${data.unidadeCras || '-'}`],
+      [`DATA: ${data.dataAtendimento.split('-').reverse().join('/')}`],
+      [`TÉCNICO RESPONSÁVEL: ${data.tecnicoNome || '-'}`],
+    ]
+  });
+
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 10,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 8 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+    head: [['DADOS DO CIDADÃO']],
+    body: [
+      [`NOME: ${data.responsavelFamiliar || '-'}`],
+      [`CPF: ${data.cpf || '-'}`],
+      [`TELEFONE: ${data.telefone || '-'}`],
+    ]
+  });
+
+  const tipos = Array.isArray(data.tipoAtendimento) ? data.tipoAtendimento.join(', ') : data.tipoAtendimento;
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 10,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 8 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+    head: [['TIPO DE ATENDIMENTO']],
+    body: [[tipos || '-']]
+  });
+
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 10,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 8 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+    head: [['DESCRIÇÃO / EVOLUÇÃO']],
+    body: [[{ content: data.descricao || '-', styles: { minCellHeight: 100 } }]]
+  });
+
+  if (data.descricaoEncaminhamento) {
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 8 },
+      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255], fontStyle: 'bold' },
+      head: [['DETALHES DO ENCAMINHAMENTO']],
+      body: [[data.descricaoEncaminhamento]]
+    });
+  }
+
+  if (data.encaminhamentos) {
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 8 },
+      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
+      head: [['ORIENTAÇÕES / ENCAMINHAMENTOS EFETUADOS']],
+      body: [[data.encaminhamentos]]
+    });
+  }
+
+  y = (doc as any).lastAutoTable.finalY + 80;
+  if (y > 750) { doc.addPage(); y = 80; }
+
+  // Signatures
+  doc.line(margin, y, pageWidth / 2 - 20, y);
+  doc.line(pageWidth / 2 + 20, y, pageWidth - margin, y);
+  
+  doc.setFontSize(9);
+  doc.text(data.tecnicoNome || "Técnico de Referência", pageWidth / 4 + margin / 2, y + 15, { align: "center" });
+  doc.text("Assinatura do Técnico", pageWidth / 4 + margin / 2, y + 28, { align: "center" });
+  
+  doc.text(data.responsavelFamiliar || "Responsável Familiar", (pageWidth / 4) * 3 - margin / 2, y + 15, { align: "center" });
+  doc.text("Assinatura do Cidadão", (pageWidth / 4) * 3 - margin / 2, y + 28, { align: "center" });
+
+  // Watermark and numbering
+  const pageCount = (doc.internal as any).getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    if (logoDataUrl) {
+      doc.setGState(new (doc as any).GState({opacity: 0.1}));
+      doc.addImage(logoDataUrl, 'PNG', pageWidth/2 - 150, doc.internal.pageSize.getHeight()/2 - 150, 300, 300);
+      doc.setGState(new (doc as any).GState({opacity: 1.0}));
+    }
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 20, { align: 'right' });
+    doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`, margin, doc.internal.pageSize.getHeight() - 20, { align: 'left' });
+  }
+
+  doc.save(`Ficha_${data.responsavelFamiliar.replace(/\s+/g, '_')}.pdf`);
 };
 
 export const generateAcoesCrasListPdf = async (acoes: any[], year: number, unidadedCras: string) => {

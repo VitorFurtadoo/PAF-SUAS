@@ -43,9 +43,12 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [pafs, setPafs] = useState<PAFData[]>([]);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  const [selectedDayStr, setSelectedDayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCras, setSelectedCras] = useState(userProfile?.unidadeCras || 'todos');
+  const [selectedCras, setSelectedCras] = useState(() => {
+    if (userProfile?.role === 'ADMIN') return 'todos';
+    return userProfile?.unidadeCras || 'todos';
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -70,13 +73,23 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
     "Jaderlândia"
   ];
 
-  // Agrupar visitas por data
-  const visitasMap = pafs.reduce((acc: Record<string, PAFData[]>, paf) => {
+  // Agrupar visitas por data - CONSIDERANDO FILTROS para que os pontos no calendário combinem com a lista
+  const filteredVisitasMap = pafs.reduce((acc: Record<string, PAFData[]>, paf) => {
     if (paf.proximaVisitaData && !paf.deletedAt) {
-      if (!acc[paf.proximaVisitaData]) {
-        acc[paf.proximaVisitaData] = [];
+      // Aplicar os mesmos filtros da lista para que o calendário seja honesto
+      const matchSearch = (paf.responsavel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (paf.cpf || '').includes(searchTerm);
+      const matchCras = selectedCras === 'todos' || 
+                        (paf.unidadeCras && paf.unidadeCras.trim() === selectedCras.trim());
+
+      if (matchSearch && matchCras) {
+        const dateKey = paf.proximaVisitaData.includes('T') ? paf.proximaVisitaData.split('T')[0] : paf.proximaVisitaData;
+        
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        acc[dateKey].push(paf);
       }
-      acc[paf.proximaVisitaData].push(paf);
     }
     return acc;
   }, {});
@@ -143,12 +156,12 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
 
     while (day <= endDate) {
       for (let i = 0; i < 7; i++) {
-        formattedDate = format(day, 'yyyy-MM-dd');
-        const cloneDay = day;
-        const dayVisitas = visitasMap[formattedDate] || [];
-        const isSelected = selectedDay && isSameDay(day, selectedDay);
+        const formattedDate = format(day, 'yyyy-MM-dd');
+        const isSelected = selectedDayStr === formattedDate;
         const isCurrentMonth = isSameMonth(day, monthStart);
         const isTodayDay = isToday(day);
+        const dayVisitas = filteredVisitasMap[formattedDate] || [];
+        const currentFormattedDate = formattedDate;
 
         days.push(
           <div
@@ -159,7 +172,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
               ${isSelected ? 'ring-2 ring-brand-primary ring-inset z-10' : ''}
               hover:bg-slate-50 cursor-pointer
             `}
-            onClick={() => setSelectedDay(cloneDay)}
+            onClick={() => setSelectedDayStr(currentFormattedDate)}
           >
             <div className="flex justify-between items-start mb-1">
               <span className={`
@@ -219,22 +232,18 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
   };
 
   const renderVisitasList = () => {
-    if (!selectedDay) return null;
+    if (!selectedDayStr) return null;
 
-    const formattedDate = format(selectedDay, 'yyyy-MM-dd');
-    const dayVisitas = (visitasMap[formattedDate] || []).filter(v => {
-      const matchSearch = v.responsavel.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          v.cpf.includes(searchTerm);
-      const matchCras = selectedCras === 'todos' || v.unidadeCras === selectedCras;
-      return matchSearch && matchCras;
-    });
+    const dayVisitas = filteredVisitasMap[selectedDayStr] || [];
+
+    const displayDate = parseISO(selectedDayStr);
 
     return (
       <div className="mt-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-black text-slate-800">
-              Visitas para {format(selectedDay, "dd 'de' MMMM", { locale: ptBR })}
+              Visitas para {format(displayDate, "dd 'de' MMMM", { locale: ptBR })}
             </h2>
             <p className="text-slate-500 text-sm font-medium">
               {dayVisitas.length} {dayVisitas.length === 1 ? 'visita agendada' : 'visitas agendadas'}
@@ -283,12 +292,13 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                   className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider
-                      ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-50 text-blue-600' : 
-                        v.unidadeCras === 'Nagibão' ? 'bg-emerald-50 text-emerald-600' :
-                        v.unidadeCras === 'Camboatã' ? 'bg-purple-50 text-purple-600' :
-                        'bg-amber-50 text-amber-600'}
+                    <div className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2
+                      ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-50 text-blue-700' : 
+                        v.unidadeCras === 'Nagibão' ? 'bg-emerald-50 text-emerald-700' :
+                        v.unidadeCras === 'Camboatã' ? 'bg-purple-50 text-purple-700' :
+                        'bg-amber-50 text-amber-700'}
                     `}>
+                      <MapPin size={12} />
                       CRAS {v.unidadeCras}
                     </div>
                     <button 
@@ -299,29 +309,51 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                     </button>
                   </div>
 
-                  <h3 className="font-black text-slate-800 mb-3 line-clamp-1 group-hover:text-brand-primary transition-colors">{v.responsavel}</h3>
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Responsável Familiar</p>
+                    <h3 className="font-black text-lg text-slate-800 group-hover:text-brand-primary transition-colors leading-tight">{v.responsavel}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">CPF: {v.cpf || '---'}</p>
+                  </div>
                   
-                  <div className="space-y-2.5">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                      <Clock size={14} className="text-slate-400" />
-                      <span>{v.proximaVisitaHora || 'Hora não definida'}</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                      <div className="w-8 h-8 bg-slate-50 flex items-center justify-center rounded-lg text-brand-primary">
+                        <Clock size={16} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Horário Agendado</p>
+                        <span>{v.proximaVisitaHora || 'Hora não definida'}</span>
+                      </div>
                     </div>
-                    <div className="flex items-start gap-2 text-xs font-bold text-slate-500">
-                      <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
-                      <span className="line-clamp-2">{v.endereco}</span>
+                    
+                    <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                      <div className="w-8 h-8 bg-slate-50 flex items-center justify-center rounded-lg text-brand-primary">
+                        <MapPin size={16} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Endereço</p>
+                        <span className="line-clamp-1">{v.endereco}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                       <Users size={14} className="text-slate-400" />
-                       <span>{v.tecnicoNome1 || 'Técnico não atribuído'}</span>
+
+                    <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
+                      <div className="w-8 h-8 bg-slate-50 flex items-center justify-center rounded-lg text-brand-primary">
+                        <Users size={16} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Técnico Principal</p>
+                        <span>{v.tecnicoNome1 || 'Técnico não atribuído'}</span>
+                      </div>
                     </div>
                   </div>
 
                   {v.proximaVisitaObservacoes && (
                     <div className="mt-4 pt-4 border-t border-slate-50">
-                      <div className="flex gap-2 p-3 bg-slate-50 rounded-xl">
-                        <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed italic">
-                          "{v.proximaVisitaObservacoes}"
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Observações do Agendamento</p>
+                      <div className="flex gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <Info size={14} className="text-brand-primary shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                          {v.proximaVisitaObservacoes}
                         </p>
                       </div>
                     </div>
@@ -343,9 +375,22 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                <CalendarIcon size={32} className="text-slate-300" />
             </div>
             <h3 className="text-lg font-bold text-slate-800 mb-1">Nenhuma visita agendada</h3>
-            <p className="text-slate-500 text-sm max-w-sm mx-auto">
-              Não há agendamentos para este dia ou os filtros aplicados não retornaram resultados.
+            <p className="text-slate-500 text-sm max-w-sm mx-auto mb-4">
+              {searchTerm || (selectedCras !== 'todos' && userProfile?.role === 'ADMIN')
+                ? 'Os filtros aplicados não retornaram resultados para este dia.'
+                : 'Não há agendamentos registrados para esta data.'}
             </p>
+            {(searchTerm || selectedCras !== 'todos') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCras('todos');
+                }}
+                className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full text-xs font-black uppercase tracking-widest transition-all"
+              >
+                Limpar Filtros
+              </button>
+            )}
           </div>
         )}
       </div>

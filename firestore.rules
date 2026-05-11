@@ -9,8 +9,8 @@ service cloud.firestore {
 
     // HELPER FUNCTIONS
     function isSignedIn() {
-      // Using verified email as a strict requirement for writes
-      return request.auth != null && request.auth.token.email_verified == true;
+      // Using email as requirement, verification relaxed for compatibility
+      return request.auth != null && request.auth.token.email != null;
     }
 
     function isValidId(id) {
@@ -22,21 +22,18 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
+        request.auth.token.email.matches('(?i)conieoliveira@gmail\\.com') ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == "conieoliveira@gmail.com"
+        getUserRole() == 'ADMIN'
       );
     }
 
-    function getUser() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
     function getUserRole() {
-      return getUser().role;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : 'GUEST';
     }
 
     function getUserUnit() {
-      return getUser().unidadeCras;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.unidadeCras : 'N/A';
     }
 
     // ENTITY VALIDATIONS
