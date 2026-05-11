@@ -498,7 +498,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
 
       <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-6">
         <div>
-          <label className="block text-sm font-bold text-slate-800 mb-2">Demanda Inicial (Motivo do Acompanhamento)</label>
+          <label className="block text-sm font-bold text-slate-800 mb-2">Demanda Inicial</label>
           <textarea 
             value={data.demandaInicial || ''} 
             onChange={e => handleChange('demandaInicial', e.target.value)}
