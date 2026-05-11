@@ -24,7 +24,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   // Profile creation state
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [profileName, setProfileName] = useState('');
-  const [cras, setCras] = useState<'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia' | 'Administração' | ''>('');
+  const [cras, setCras] = useState<'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia' | ''>('');
 
   // Email/Password auth state
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -295,7 +295,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                 <option value="Nagibão">CRAS Nagibão</option>
                 <option value="Camboatã">CRAS Camboatã</option>
                 <option value="Jaderlândia">CRAS Jaderlândia</option>
-                <option value="Administração">Administração (Acesso Global)</option>
               </select>
             </div>
             
