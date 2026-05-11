@@ -594,7 +594,7 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Demanda Inicial</label>
                           <input
                             type="text"
-                            placeholder="Ex: Auxílio Brasil, Cesta Básica..."
+                            placeholder="Ex: Bolsa Família, Cesta Básica..."
                             value={formData.demandaInicial}
                             onChange={(e) => setFormData({...formData, demandaInicial: e.target.value})}
                             className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
@@ -618,7 +618,6 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           >
                             <option value="">Selecione...</option>
                             <option value="Demanda espontânea">Demanda espontânea</option>
-                            <option value="Encaminhamento da rede">Encaminhamento da rede</option>
                             <option value="Encaminhamento da rede socioassistencial">Encaminhamento da rede socioassistencial</option>
                             <option value="Busca ativa">Busca ativa</option>
                             <option value="Outros">Outros</option>

@@ -13,7 +13,7 @@ const SERVICOS_BASICA = ['PAIF', 'SCFV', 'Serviço no domicílio para gestantes 
 const SERVICOS_MEDIA = ['PAEFI', 'Medidas Socioeducativas (Meio Aberto)', 'Para idosos, PCD e suas famílias', 'Para pessoas em situação de rua'];
 const SERVICOS_ALTA = ['Acolhimento Institucional'];
 
-const PROGRAMAS_RENDA = ['Bolsa Família', 'BPC - Benefício de Prestação Continuada', 'Acessuas'];
+const PROGRAMAS_RENDA = ['Bolsa Família', 'BPC - Benefício de Prestação Continuada', 'Acessuas Trabalho'];
 const BENEFICIOS_EVENTUAIS = ['Cesta Básica', 'Auxílio Natalidade', 'Auxílio Funeral', 'Aluguel Social', 'Auxílio transporte'];
 const RECURSOS = ['Creches', 'Escolas em tempo integral', 'Projetos sociais em contraturno escolar', 'OSC\'s e/ou associação de bairro'];
 
