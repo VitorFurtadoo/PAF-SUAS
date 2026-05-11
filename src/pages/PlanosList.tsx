@@ -7,6 +7,7 @@ import type { PAFData } from '../types';
 import HistoryModal from '../components/HistoryModal';
 import TasksModal from '../components/TasksModal';
 import VisitManagementModal from '../components/VisitManagementModal';
+import PAFViewModal from '../components/PAFViewModal';
 
 interface PlanosListProps {
   onNewPlan: () => void;
@@ -23,6 +24,7 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedTecnico, setSelectedTecnico] = useState('');
+  const [selectedCras, setSelectedCras] = useState('todos');
   const [showFilters, setShowFilters] = useState(false);
   const [sortField, setSortField] = useState<'date' | 'responsavel' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -30,6 +32,11 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, permanent: boolean } | null>(null);
   const [historyModal, setHistoryModal] = useState<{ isOpen: boolean, paf: any | null }>({
+    isOpen: false,
+    paf: null
+  });
+
+  const [viewModal, setViewModal] = useState<{ isOpen: boolean, paf: any | null }>({
     isOpen: false,
     paf: null
   });
@@ -147,8 +154,14 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
                        paf.tecnicoNome2 === selectedTecnico || 
                        paf.userName === selectedTecnico;
       }
+
+      // 5. Filtro de CRAS (Para Admins)
+      let matchCras = true;
+      if (userProfile?.role === 'ADMIN' && selectedCras !== 'todos') {
+        matchCras = (paf.unidadeCras || '').trim() === selectedCras.trim();
+      }
       
-      return matchStatus && matchSearch && matchDate && matchTecnico;
+      return matchStatus && matchSearch && matchDate && matchTecnico && matchCras;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -308,12 +321,30 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
                     </select>
                   </div>
 
+                  {userProfile?.role === 'ADMIN' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Unidade CRAS</label>
+                      <select
+                        value={selectedCras}
+                        onChange={(e) => setSelectedCras(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/10 outline-none appearance-none bg-white font-bold text-slate-700"
+                      >
+                        <option value="todos">Todas as unidades</option>
+                        <option value="Morada do Sol">CRAS Morada do Sol</option>
+                        <option value="Nagibão">CRAS Nagibão</option>
+                        <option value="Jaderlândia">CRAS Jaderlândia</option>
+                        <option value="Camboatã">CRAS Camboatã</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div className="flex items-end gap-2">
                     <button
                       onClick={() => {
                         setStartDate('');
                         setEndDate('');
                         setSelectedTecnico('');
+                        setSelectedCras('todos');
                         setFilterStatus('Todos');
                         setSearchTerm('');
                       }}
@@ -408,7 +439,8 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
                     <td className="p-5">
                       {viewMode === 'ativos' ? (
                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => setVisitModal({ isOpen: true, paf })} className={`p-2 rounded-lg transition ${paf.proximaVisitaData ? 'text-brand-primary hover:bg-brand-light' : 'text-slate-200 cursor-not-allowed'}`} title="Consultar Visitas" disabled={!paf.proximaVisitaData}><Calendar size={18} /></button>
+                           <button onClick={() => setViewModal({ isOpen: true, paf: paf as PAFData })} className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-light rounded-lg transition" title="Visualizar Detalhes"><Eye size={18} /></button>
+                           <button onClick={() => setVisitModal({ isOpen: true, paf })} className={`p-2 rounded-lg transition ${paf.proximaVisitaData ? 'text-brand-primary hover:bg-brand-light' : 'text-slate-200 cursor-not-allowed'}`} title="Consultar Visitas" disabled={!paf.proximaVisitaData}><Calendar size={18} /></button>
                            <button onClick={() => setTasksModal({ isOpen: true, paf })} className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition" title="Tarefas"><ClipboardCheck size={18} /></button>
                            <button onClick={() => setHistoryModal({ isOpen: true, paf })} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Histórico"><Clock size={18} /></button>
                            <button onClick={() => onEditPlan({ ...paf } as PAFData)} className="p-2 text-slate-400 hover:text-brand-primary hover:bg-brand-light rounded-lg transition" title="Editar"><Edit size={18} /></button>
@@ -457,6 +489,7 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
                 <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
                   {viewMode === 'ativos' ? (
                     <>
+                      <button onClick={() => setViewModal({ isOpen: true, paf: paf as PAFData })} className="p-2.5 bg-slate-100 text-slate-500 rounded-xl active:scale-95 transition" title="Visualizar"><Eye size={18} /></button>
                       <button onClick={() => onEditPlan({ ...paf } as PAFData)} className="flex-1 bg-brand-primary/10 text-brand-primary py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition">
                         <Edit size={14} /> Editar
                       </button>
@@ -544,6 +577,12 @@ export default function PlanosList({ onNewPlan, onEditPlan }: PlanosListProps) {
           onUpdate={fetchPAFs}
         />
       )}
+
+      <PAFViewModal 
+        isOpen={viewModal.isOpen} 
+        onClose={() => setViewModal({ ...viewModal, isOpen: false })} 
+        paf={viewModal.paf} 
+      />
     </div>
   );
 }

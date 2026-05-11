@@ -49,6 +49,15 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
     if (userProfile?.role === 'ADMIN') return 'todos';
     return userProfile?.unidadeCras || 'todos';
   });
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDayClick = (dateStr: string) => {
+    setSelectedDayStr(dateStr);
+    // Smooth scroll to list when a day is clicked on mobile or small screens
+    setTimeout(() => {
+      listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -172,7 +181,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
               ${isSelected ? 'ring-2 ring-brand-primary ring-inset z-10' : ''}
               hover:bg-slate-50 cursor-pointer
             `}
-            onClick={() => setSelectedDayStr(currentFormattedDate)}
+            onClick={() => handleDayClick(currentFormattedDate)}
           >
             <div className="flex justify-between items-start mb-1">
               <span className={`
@@ -239,7 +248,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
     const displayDate = parseISO(selectedDayStr);
 
     return (
-      <div className="mt-8">
+      <div className="mt-8" ref={listRef}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-black text-slate-800">
@@ -292,14 +301,14 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                   className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2
-                      ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-50 text-blue-700' : 
-                        v.unidadeCras === 'Nagibão' ? 'bg-emerald-50 text-emerald-700' :
-                        v.unidadeCras === 'Camboatã' ? 'bg-purple-50 text-purple-700' :
-                        'bg-amber-50 text-amber-700'}
+                    <div className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-sm
+                      ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-600 text-white' : 
+                        v.unidadeCras === 'Nagibão' ? 'bg-emerald-600 text-white' :
+                        v.unidadeCras === 'Camboatã' ? 'bg-purple-600 text-white' :
+                        'bg-amber-600 text-white'}
                     `}>
                       <MapPin size={12} />
-                      CRAS {v.unidadeCras}
+                      {v.unidadeCras}
                     </div>
                     <button 
                       onClick={() => onEditPlan(v)}

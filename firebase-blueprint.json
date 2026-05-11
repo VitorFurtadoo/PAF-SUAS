@@ -167,6 +167,8 @@
           "items": { "type": "string" }
         },
         "descricao": { "type": "string" },
+        "demandaInicial": { "type": "string" },
+        "formaAcesso": { "type": "string" },
         "encaminhamentos": { "type": "string" },
         "descricaoEncaminhamento": { "type": "string" },
         "createdAt": { "type": "string" },

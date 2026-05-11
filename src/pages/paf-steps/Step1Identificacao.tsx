@@ -514,7 +514,8 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
               'Demanda espontânea',
               'Busca ativa',
               'Encaminhamento pela rede socioassistencial',
-              'Encaminhamento por outras políticas públicas'
+              'Encaminhamento por outras políticas públicas',
+              'Outros'
             ].map(forma => (
               <label key={forma} className={`flex items-center p-3 rounded-xl border transition-all cursor-pointer ${data.formaAcesso === forma ? 'bg-brand-light/30 border-brand-primary' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
                 <input 
@@ -529,19 +530,22 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
             ))}
           </div>
 
-          {data.formaAcesso === 'Encaminhamento por outras políticas públicas' && (
+          {(data.formaAcesso === 'Encaminhamento por outras políticas públicas' || data.formaAcesso === 'Outros') && (
             <motion.div 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               className="mt-4"
             >
-              <label className="block text-xs font-bold text-slate-500 mb-1">Especifique a política pública:</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                {data.formaAcesso === 'Outros' ? 'Especifique:' : 'Especifique a política pública:'}
+              </label>
               <input 
                 type="text" 
                 value={data.formaAcessoOutros || ''} 
                 onChange={e => handleChange('formaAcessoOutros', e.target.value)}
-                placeholder="Ex: Saúde, Educação, Habitação..."
+                placeholder={data.formaAcesso === 'Outros' ? "Descreva a forma de acesso..." : "Ex: Saúde, Educação, Habitação..."}
                 className="w-full p-2.5 rounded-lg border border-slate-200 bg-white"
+                required
               />
             </motion.div>
           )}

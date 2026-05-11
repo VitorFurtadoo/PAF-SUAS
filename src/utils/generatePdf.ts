@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { PAFData, FichaAtendimento } from '../types';
 
@@ -361,7 +361,7 @@ export const generatePAFPdf = async (data: PAFData) => {
   }
 
   // Add page numbers and watermark
-  const pageCount = (doc.internal as any).getNumberOfPages();
+  const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     
@@ -514,8 +514,11 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
   let y = margin;
 
   let logoDataUrl: string | null = null;
+  let logoWidth = 0;
+  let logoHeight = 0;
+
   try {
-    const imgResult = await new Promise<{ dataUrl: string }>((resolve, reject) => {
+    const imgResult = await new Promise<{ dataUrl: string, width: number, height: number }>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
       img.onload = () => {
@@ -525,7 +528,7 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          resolve({ dataUrl: canvas.toDataURL('image/png') });
+          resolve({ dataUrl: canvas.toDataURL('image/png'), width: img.width, height: img.height });
         } else {
           reject(new Error('No canvas context'));
         }
@@ -534,115 +537,163 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
       img.src = '/logo-semas.png';
     });
     logoDataUrl = imgResult.dataUrl;
+    logoWidth = imgResult.width;
+    logoHeight = imgResult.height;
   } catch (e) {
     console.warn('Could not load logo:', e);
   }
 
   // Colors
-  const primaryColor: [number, number, number] = [46, 125, 50]; // Dark green
-  const textColor: [number, number, number] = [51, 51, 51];
+  const primaryColor: [number, number, number] = [0, 124, 192]; // Brand primary blue
+  const brandSecondary: [number, number, number] = [0, 56, 101]; // Brand secondary blue
+  const textColor: [number, number, number] = [30, 41, 59]; // Slate 800
+  const lightBg: [number, number, number] = [248, 250, 252]; // Slate 50
 
-  // Header Title
+  // --- HEADER SECTION (CLEAN WHITE) ---
+  // Accent Top Line
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, 0, pageWidth, 70, 'F');
-  
-  doc.setFontSize(16);
+  doc.rect(0, 0, pageWidth, 4, 'F');
+
+  // Logo (Top Left)
+  if (logoDataUrl && logoWidth > 0 && logoHeight > 0) {
+    try {
+      const hHeight = 50;
+      const hWidth = hHeight * (logoWidth / logoHeight);
+      doc.addImage(logoDataUrl, 'PNG', margin, 20, hWidth, hHeight);
+    } catch (e) {
+      console.warn('Could not add logo to PDF header');
+    }
+  }
+
+  // Header Text (Top Right)
+  doc.setTextColor(brandSecondary[0], brandSecondary[1], brandSecondary[2]);
+  doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("FICHA DE ATENDIMENTO SOCIOASSISTENCIAL", pageWidth / 2, 45, { align: "center" });
+  doc.text("FICHA DE ATENDIMENTO", pageWidth - margin, 40, { align: "right" });
   
-  y = 100;
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("SOCIOASSISTENCIAL", pageWidth - margin, 52, { align: "right" });
+  
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(110, 110, 110);
+  doc.text("PREFEITURA MUNICIPAL", pageWidth - margin, 65, { align: "right" });
+  doc.text("SECRETARIA DE ASSISTÊNCIA SOCIAL", pageWidth - margin, 74, { align: "right" });
+
+  // Divider Line
+  doc.setDrawColor(226, 232, 240); // Slate 200
+  doc.setLineWidth(1);
+  doc.line(margin, 85, pageWidth - margin, 85);
+  
+  y = 105;
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
-  // Content
+  // --- CONTENT SECTION ---
+  
+  // Section: Identification
   autoTable(doc, {
     startY: y,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 8 },
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    head: [['DADOS DO ATENDIMENTO']],
+    styles: { fontSize: 9, cellPadding: 6, font: 'helvetica', lineColor: [226, 232, 240], lineWidth: 0.5 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+    head: [['I. IDENTIFICAÇÃO DO ATENDIMENTO']],
     body: [
       [`UNIDADE CRAS: ${data.unidadeCras || '-'}`],
-      [`DATA: ${data.dataAtendimento.split('-').reverse().join('/')}`],
+      [`DATA DO ATENDIMENTO: ${data.dataAtendimento.split('-').reverse().join('/')}`],
       [`TÉCNICO RESPONSÁVEL: ${data.tecnicoNome || '-'}`],
     ]
   });
 
+  // Section: Citizen Data
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 15,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 8 },
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    head: [['DADOS DO CIDADÃO']],
+    styles: { fontSize: 9, cellPadding: 6, lineColor: [226, 232, 240], lineWidth: 0.5 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+    head: [['II. DADOS DO CIDADÃO']],
     body: [
-      [`NOME: ${data.responsavelFamiliar || '-'}`],
+      [{ content: `NOME COMPLETO: ${data.responsavelFamiliar.toUpperCase() || '-'}`, styles: { fillColor: [241, 245, 249], fontStyle: 'bold' } }],
       [`CPF: ${data.cpf || '-'}`],
-      [`TELEFONE: ${data.telefone || '-'}`],
+      [`TELEFONE DE CONTATO: ${data.telefone || '-'}${data.contatoAlternativo ? ` / ${data.contatoAlternativo}` : ''}`],
+      [`DEMANDA INICIAL: ${data.demandaInicial || '-'}`],
+      [`FORMA DE ACESSO: ${data.formaAcesso || '-'}`],
     ]
   });
 
-  const tipos = Array.isArray(data.tipoAtendimento) ? data.tipoAtendimento.join(', ') : data.tipoAtendimento;
+  // Section: Type of Service
+  const tiposArray = Array.isArray(data.tipoAtendimento) ? data.tipoAtendimento : [data.tipoAtendimento];
+  const tiposStr = tiposArray.map(t => (t === 'Outro' && data.tipoAtendimentoOutro) ? `Outro: ${data.tipoAtendimentoOutro}` : t).join(', ');
+  
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 15,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 8 },
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    head: [['TIPO DE ATENDIMENTO']],
-    body: [[tipos || '-']]
+    styles: { fontSize: 9, cellPadding: 6, lineColor: [226, 232, 240], lineWidth: 0.5 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+    head: [['III. TIPO DE ATENDIMENTO']],
+    body: [[{ content: tiposStr || '-', styles: { fontStyle: 'bold', textColor: brandSecondary } }]]
   });
 
+  // Section: Evolution
   autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 10,
+    startY: (doc as any).lastAutoTable.finalY + 15,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 8 },
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
-    head: [['DESCRIÇÃO / EVOLUÇÃO']],
-    body: [[{ content: data.descricao || '-', styles: { minCellHeight: 100 } }]]
+    styles: { fontSize: 10, cellPadding: 10, lineColor: [226, 232, 240], lineWidth: 0.5 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+    head: [['IV. DESCRIÇÃO / EVOLUÇÃO']],
+    body: [[{ content: data.descricao || '-', styles: { minCellHeight: 120, halign: 'justify' } }]]
   });
 
-  if (data.descricaoEncaminhamento) {
+  // Section: Referrals
+  if (data.descricaoEncaminhamento || data.encaminhamentos) {
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 10,
+      startY: (doc as any).lastAutoTable.finalY + 15,
       theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 8 },
-      headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255], fontStyle: 'bold' },
-      head: [['DETALHES DO ENCAMINHAMENTO']],
-      body: [[data.descricaoEncaminhamento]]
-    });
-  }
-
-  if (data.encaminhamentos) {
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 8 },
-      headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
-      head: [['ORIENTAÇÕES / ENCAMINHAMENTOS EFETUADOS']],
-      body: [[data.encaminhamentos]]
+      styles: { fontSize: 9, cellPadding: 8, lineColor: [226, 232, 240], lineWidth: 0.5 },
+      headStyles: { fillColor: brandSecondary, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+      head: [['V. ENCAMINHAMENTOS E ORIENTAÇÕES']],
+      body: [
+        [{ content: `Especifique o Encaminhamento: ${data.descricaoEncaminhamento || 'N/A'}`, styles: { fillColor: lightBg } }],
+        [{ content: `Encaminhamentos / Orientações Efetuadas: ${data.encaminhamentos || 'N/A'}`, styles: { fillColor: lightBg } }]
+      ]
     });
   }
 
   y = (doc as any).lastAutoTable.finalY + 80;
   if (y > 750) { doc.addPage(); y = 80; }
 
-  // Signatures
+  // --- SIGNATURE SECTION ---
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(148, 163, 184); // Slate 400
+  
   doc.line(margin, y, pageWidth / 2 - 20, y);
   doc.line(pageWidth / 2 + 20, y, pageWidth - margin, y);
   
   doc.setFontSize(9);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.setFont("helvetica", "bold");
   doc.text(data.tecnicoNome || "Técnico de Referência", pageWidth / 4 + margin / 2, y + 15, { align: "center" });
-  doc.text("Assinatura do Técnico", pageWidth / 4 + margin / 2, y + 28, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Assinatura do Técnico", pageWidth / 4 + margin / 2, y + 25, { align: "center" });
   
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
   doc.text(data.responsavelFamiliar || "Responsável Familiar", (pageWidth / 4) * 3 - margin / 2, y + 15, { align: "center" });
-  doc.text("Assinatura do Cidadão", (pageWidth / 4) * 3 - margin / 2, y + 28, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Assinatura do Cidadão", (pageWidth / 4) * 3 - margin / 2, y + 25, { align: "center" });
 
   // Watermark and numbering
-  const pageCount = (doc.internal as any).getNumberOfPages();
+  const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    if (logoDataUrl) {
+    if (logoDataUrl && logoWidth > 0 && logoHeight > 0) {
       doc.setGState(new (doc as any).GState({opacity: 0.1}));
-      doc.addImage(logoDataUrl, 'PNG', pageWidth/2 - 150, doc.internal.pageSize.getHeight()/2 - 150, 300, 300);
+      const wWidth = 300;
+      const wHeight = wWidth * (logoHeight / logoWidth);
+      doc.addImage(logoDataUrl, 'PNG', pageWidth/2 - (wWidth/2), doc.internal.pageSize.getHeight()/2 - (wHeight/2), wWidth, wHeight);
       doc.setGState(new (doc as any).GState({opacity: 1.0}));
     }
     doc.setFontSize(8);

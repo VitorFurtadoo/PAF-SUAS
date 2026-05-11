@@ -84,6 +84,7 @@ export interface PAFData {
   
   // I - DIAGNÓSTICO
   vulnerabilidades: string[];
+  vulnerabilidadesOutros?: string;
   
   // II - SOBRE O GRUPO FAMILIAR
   vulnerabilidadesMutiplasDescricao: string;
@@ -230,7 +231,10 @@ export interface FichaAtendimento {
   tecnicoId: string;
   tecnicoNome: string;
   tipoAtendimento: string[];
+  tipoAtendimentoOutro?: string;
   descricao: string;
+  demandaInicial?: string;
+  formaAcesso?: string;
   encaminhamentos?: string;
   descricaoEncaminhamento?: string;
   createdAt: any;

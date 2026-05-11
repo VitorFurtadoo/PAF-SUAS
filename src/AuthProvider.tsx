@@ -67,10 +67,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     } catch (error: any) {
       console.error('Error logging in with Google:', error);
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-        // Ignorar se o usuário fechar o popup ou cancelar a requisição
         return;
       }
-      setAuthError(error.message || 'Erro ao fazer login com Google.');
+      if (error.code === 'auth/invalid-credential') {
+        setAuthError('Credenciais inválidas ou configuração de autenticação pendente no Firebase.');
+      } else {
+        setAuthError(error.message || 'Erro ao fazer login com Google.');
+      }
     }
   };
 
@@ -89,18 +92,28 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setAuthError('Email ou senha inválidos.');
-      } else if (error.code === 'auth/email-already-in-use') {
-        setAuthError('Este email já está em uso.');
-      } else if (error.code === 'auth/operation-not-allowed') {
-        setAuthError('A autenticação com email e senha está desabilitada nas configurações do Firebase. Por favor, habilite este método no Firebase Console > Authentication > Sign-in method.');
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        // Ignorar o erro se o usuário apenas fechou o painel de login do Google
-        return;
+      console.error('Auth error detailed:', {
+        code: error.code,
+        message: error.message,
+        customData: error.customData
+      });
+      
+      const errorCode = error.code;
+      
+      if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password') {
+        setAuthError('Email ou senha inválidos. Verifique suas credenciais.');
+      } else if (errorCode === 'auth/email-already-in-use') {
+        setAuthError('Este email já está em uso por outra conta.');
+      } else if (errorCode === 'auth/weak-password') {
+        setAuthError('A senha deve ter pelo menos 6 caracteres.');
+      } else if (errorCode === 'auth/invalid-email') {
+        setAuthError('O formato do email é inválido.');
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        setAuthError('O login com email/senha não está ativado no Firebase Console.');
+      } else if (errorCode === 'auth/too-many-requests') {
+        setAuthError('Muitas tentativas falhas. A conta foi bloqueada temporariamente. Tente mais tarde ou use o Google Login.');
       } else {
-        setAuthError(error.message || 'Erro de autenticação.');
+        setAuthError(`Erro: ${error.message || 'Erro inesperado na autenticação.'}`);
       }
     } finally {
       setIsAuthenticating(false);

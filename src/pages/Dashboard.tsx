@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, TrendingUp, AlertCircle, FilePlus, Loader2, Filter, ArrowUpDown, Search, Calendar, Clock, Plus } from 'lucide-react';
+import { Users, FileText, TrendingUp, AlertCircle, FilePlus, Loader2, Filter, ArrowUpDown, Search, Calendar, Clock, Plus, Eye } from 'lucide-react';
 import { getPAFs } from '../services/pafService';
 import { useAuth } from '../AuthProvider';
+import PAFViewModal from '../components/PAFViewModal';
+import type { PAFData } from '../types';
 
 interface DashboardProps {
   onNewPlan: () => void;
@@ -17,6 +19,10 @@ export default function Dashboard({ onNewPlan, onNewFicha }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [sortField, setSortField] = useState<'date' | 'responsavel' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewModal, setViewModal] = useState<{ isOpen: boolean, paf: PAFData | null }>({
+    isOpen: false,
+    paf: null
+  });
 
   useEffect(() => {
     const fetchPAFs = async () => {
@@ -241,7 +247,16 @@ export default function Dashboard({ onNewPlan, onNewFicha }: DashboardProps) {
                           </span>
                         </td>
                         <td className="p-5 text-right font-medium text-slate-500 text-xs">
-                          {paf.createdAt ? new Date(paf.createdAt.toMillis()).toLocaleDateString('pt-BR') : 'N/A'}
+                          <div className="flex items-center justify-end gap-2">
+                             <span>{paf.createdAt ? new Date(paf.createdAt.toMillis()).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                             <button 
+                               onClick={() => setViewModal({ isOpen: true, paf: paf as PAFData })}
+                               className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-brand-light rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                               title="Visualizar"
+                             >
+                                <Eye size={16} />
+                             </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -259,7 +274,11 @@ export default function Dashboard({ onNewPlan, onNewFicha }: DashboardProps) {
             {/* Mobile Cards for Dashboard */}
             <div className="md:hidden divide-y divide-slate-100">
               {filteredAndSortedPafs.slice(0, 10).map(paf => (
-                <div key={paf.id} className="p-5">
+                <div 
+                  key={paf.id} 
+                  className="p-5 active:bg-slate-50 transition-colors"
+                  onClick={() => setViewModal({ isOpen: true, paf: paf as PAFData })}
+                >
                   <div className="flex justify-between items-start mb-1">
                     <div className="font-bold text-slate-700">{paf.responsavel || 'Não informado'}</div>
                     <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-full ${
@@ -373,6 +392,12 @@ export default function Dashboard({ onNewPlan, onNewFicha }: DashboardProps) {
           </div>
         </div>
       </div>
+      
+      <PAFViewModal 
+        isOpen={viewModal.isOpen} 
+        onClose={() => setViewModal({ ...viewModal, isOpen: false })} 
+        paf={viewModal.paf} 
+      />
     </div>
   );
 }

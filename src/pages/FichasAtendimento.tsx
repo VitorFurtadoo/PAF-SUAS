@@ -33,6 +33,7 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
   const [selectedFicha, setSelectedFicha] = useState<FichaAtendimento | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
+  const [selectedCras, setSelectedCras] = useState('todos');
 
   useEffect(() => {
     if (defaultCreate) {
@@ -47,6 +48,9 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     tipoAtendimento: [],
     responsavelFamiliar: '',
     cpf: '',
+    demandaInicial: '',
+    formaAcesso: '',
+    tipoAtendimentoOutro: '',
     descricao: '',
     encaminhamentos: '',
     descricaoEncaminhamento: ''
@@ -72,13 +76,17 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
 
   useEffect(() => {
     loadFichas();
-  }, [userProfile?.unidadeCras]);
+  }, [userProfile?.unidadeCras, selectedCras]);
 
   const loadFichas = async () => {
     setLoading(true);
     try {
-      const data = await getFichasAtendimento(userProfile?.unidadeCras);
-      setFichas(data);
+      const crasToFetch = userProfile?.role === 'ADMIN' 
+        ? (selectedCras === 'todos' ? undefined : selectedCras)
+        : userProfile?.unidadeCras;
+      
+      const data = await getFichasAtendimento(crasToFetch);
+      setFichas(data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -86,13 +94,20 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     }
   };
 
+  const [customAcessoActive, setCustomAcessoActive] = useState(false);
+
   const handleOpenPanel = (mode: 'view' | 'edit' | 'create', ficha?: FichaAtendimento) => {
     setPanelMode(mode);
+    setCustomAcessoActive(false);
     if (ficha) {
       setSelectedFicha(ficha);
+      const isStandard = ['Demanda espontânea', 'Encaminhamento da rede', 'Encaminhamento da rede socioassistencial', 'Busca ativa', ''].includes(ficha.formaAcesso || '');
+      if (!isStandard) setCustomAcessoActive(true);
+      
       setFormData({
         ...ficha,
-        tipoAtendimento: Array.isArray(ficha.tipoAtendimento) ? ficha.tipoAtendimento : [ficha.tipoAtendimento]
+        tipoAtendimento: Array.isArray(ficha.tipoAtendimento) ? ficha.tipoAtendimento : [ficha.tipoAtendimento],
+        tipoAtendimentoOutro: ficha.tipoAtendimentoOutro || ''
       });
     } else {
       setSelectedFicha(null);
@@ -100,8 +115,11 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
         unidadeCras: (userProfile?.role === 'ADMIN') ? '' : (userProfile?.unidadeCras || ''),
         dataAtendimento: new Date().toISOString().split('T')[0],
         tipoAtendimento: [],
+        tipoAtendimentoOutro: '',
         responsavelFamiliar: '',
         cpf: '',
+        demandaInicial: '',
+        formaAcesso: '',
         descricao: '',
         encaminhamentos: '',
         descricaoEncaminhamento: ''
@@ -114,9 +132,33 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     e.preventDefault();
     if (!user) return;
 
+    // Validation
+    const errors: string[] = [];
+    if (!formData.unidadeCras) errors.push("Unidade CRAS");
+    if (!formData.dataAtendimento) errors.push("Data do Atendimento");
+    if (!formData.responsavelFamiliar?.trim()) errors.push("Nome do Cidadão");
+    if (!formData.cpf?.trim()) errors.push("CPF do Cidadão");
+    if (!formData.demandaInicial?.trim()) errors.push("Demanda Inicial");
+    if (!formData.formaAcesso?.trim()) errors.push("Forma de Acesso");
+    if (!formData.tipoAtendimento || formData.tipoAtendimento.length === 0) errors.push("Pelo menos um Tipo de Atendimento");
+    if (formData.tipoAtendimento?.includes('Outro') && !formData.tipoAtendimentoOutro?.trim()) {
+      errors.push("Especificação do Tipo de Atendimento");
+    }
+    if (!formData.descricao?.trim()) errors.push("Descrição / Evolução");
+
+    if (formData.tipoAtendimento?.includes('Encaminhamento') && !formData.descricaoEncaminhamento?.trim()) {
+      errors.push("Descrição do Encaminhamento");
+    }
+
+    if (errors.length > 0) {
+      alert(`Os seguintes campos são obrigatórios:\n- ${errors.join("\n- ")}`);
+      return;
+    }
+
     try {
       const dataToSave = {
         ...formData,
+        unidadeCras: userProfile?.role === 'ADMIN' ? formData.unidadeCras : (userProfile?.unidadeCras || formData.unidadeCras),
         tecnicoId: user.uid,
         tecnicoNome: userProfile?.name || 'Técnico',
       } as FichaAtendimento;
@@ -168,18 +210,37 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
       </div>
 
       {/* Filters Area */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Pesquisar por responsável ou técnico..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-medium text-slate-600"
-          />
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Pesquisar por responsável ou técnico..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-medium text-slate-600"
+            />
+          </div>
+          
+          {userProfile?.role === 'ADMIN' && (
+            <div className="w-full md:w-64">
+              <select
+                value={selectedCras}
+                onChange={(e) => setSelectedCras(e.target.value)}
+                className="w-full p-3 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+              >
+                <option value="todos">Todos os CRAS</option>
+                <option value="Morada do Sol">Morada do Sol</option>
+                <option value="Nagibão">Nagibão</option>
+                <option value="Camboatã">Camboatã</option>
+                <option value="Jaderlândia">Jaderlândia</option>
+              </select>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide border-t border-slate-50 pt-3">
           {['Todos', 'Escuta qualificada', 'Acolhida particularizada', 'Acolhida coletiva', 'Encaminhamento', 'Visita Domiciliar'].map((type) => (
             <button
               key={type}
@@ -221,10 +282,10 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
               onClick={() => handleOpenPanel('view', ficha)}
               className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all border border-slate-100 relative overflow-hidden cursor-pointer"
             >
-              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10" onClick={(e) => e.stopPropagation()}>
+              <div className="absolute top-3 right-3 flex gap-1 z-10" onClick={(e) => e.stopPropagation()}>
                 <button 
                   onClick={() => handleOpenPanel('edit', ficha)}
-                  className="p-2 bg-slate-50 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all"
+                  className="p-2 bg-slate-50 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
                   title="Editar"
                 >
                   <Edit2 size={16} />
@@ -234,14 +295,14 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                     e.stopPropagation();
                     generateFichaAtendimentoPdf(ficha);
                   }}
-                  className="p-2 bg-slate-50 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-xl transition-all"
+                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm"
                   title="Exportar PDF"
                 >
                   <Download size={16} />
                 </button>
                 <button 
                   onClick={() => handleDelete(ficha.id!)}
-                  className="p-2 bg-slate-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                  className="p-2 bg-slate-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
                   title="Excluir"
                 >
                   <Trash2 size={16} />
@@ -295,9 +356,20 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                     {ficha.tecnicoNome}
                   </span>
                 </div>
-                <button className="text-brand-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                  <ChevronRight size={16} />
-                </button>
+                
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      generateFichaAtendimentoPdf(ficha);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
+                  >
+                    <Download size={12} />
+                    Exportar
+                  </button>
+                  <ChevronRight size={16} className="text-brand-primary group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </motion.div>
           ))}
@@ -366,6 +438,17 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           {selectedFicha.cpf && (
                             <p className="text-xs font-bold text-slate-400">CPF: {selectedFicha.cpf}</p>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-slate-50 p-4 rounded-2xl">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Demanda Inicial</span>
+                          <span className="font-bold text-slate-700">{selectedFicha.demandaInicial || '-'}</span>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-2xl">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Forma de Acesso</span>
+                          <span className="font-bold text-slate-700">{selectedFicha.formaAcesso || '-'}</span>
                         </div>
                       </div>
 
@@ -440,9 +523,10 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Unidade CRAS</label>
                           <select
                             required
+                            disabled={userProfile?.role !== 'ADMIN'}
                             value={formData.unidadeCras}
                             onChange={(e) => setFormData({...formData, unidadeCras: e.target.value as any})}
-                            className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                            className={`w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50 ${userProfile?.role !== 'ADMIN' ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
                             <option value="">Selecione...</option>
                             <option value="Morada do Sol">Morada do Sol</option>
@@ -505,6 +589,60 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Demanda Inicial</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Auxílio Brasil, Cesta Básica..."
+                            value={formData.demandaInicial}
+                            onChange={(e) => setFormData({...formData, demandaInicial: e.target.value})}
+                            className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Forma de Acesso</label>
+                          <select
+                            value={customAcessoActive ? 'Outros' : formData.formaAcesso}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'Outros') {
+                                setCustomAcessoActive(true);
+                                setFormData({...formData, formaAcesso: ''});
+                              } else {
+                                setCustomAcessoActive(false);
+                                setFormData({...formData, formaAcesso: val});
+                              }
+                            }}
+                            className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="Demanda espontânea">Demanda espontânea</option>
+                            <option value="Encaminhamento da rede">Encaminhamento da rede</option>
+                            <option value="Encaminhamento da rede socioassistencial">Encaminhamento da rede socioassistencial</option>
+                            <option value="Busca ativa">Busca ativa</option>
+                            <option value="Outros">Outros</option>
+                          </select>
+
+                          {customAcessoActive && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="mt-2"
+                            >
+                              <input
+                                type="text"
+                                placeholder="Especifique a forma de acesso..."
+                                value={formData.formaAcesso}
+                                onChange={(e) => setFormData({...formData, formaAcesso: e.target.value})}
+                                className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                                autoFocus
+                              />
+                            </motion.div>
+                          )}
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Tipo de Atendimento (Selecione um ou mais)</label>
                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -533,6 +671,24 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                             );
                           })}
                         </div>
+
+                        {formData.tipoAtendimento?.includes('Outro') && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="mt-3"
+                          >
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Especifique o Tipo de Atendimento</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Qual outro tipo de atendimento?"
+                              value={formData.tipoAtendimentoOutro}
+                              onChange={(e) => setFormData({...formData, tipoAtendimentoOutro: e.target.value})}
+                              className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                            />
+                          </motion.div>
+                        )}
                       </div>
 
                       {formData.tipoAtendimento?.includes('Encaminhamento') && (

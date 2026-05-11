@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import type { PAFData, SituacaoFamiliar } from '../../types';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import InfoTooltip from '../../components/InfoTooltip';
@@ -77,6 +78,23 @@ export default function Step2Diagnostico({ data, handleChange, toggleVulnerabili
             </label>
           ))}
         </div>
+
+        {data.vulnerabilidades.includes('Outros') && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-4 p-4 bg-white border border-slate-200 rounded-lg"
+          >
+            <label className="block text-xs font-bold text-slate-500 mb-1">Especifique as outras vulnerabilidades:</label>
+            <input 
+              type="text" 
+              value={data.vulnerabilidadesOutros || ''} 
+              onChange={e => handleChange('vulnerabilidadesOutros', e.target.value)}
+              className="w-full p-2.5 rounded-lg border border-slate-200 bg-white"
+              required
+            />
+          </motion.div>
+        )}
       </section>
 
       {/* II - SOBRE O GRUPO FAMILIAR */}

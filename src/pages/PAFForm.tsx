@@ -207,12 +207,91 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
     });
   }, []);
 
+  const validateRequiredFields = (isDraft: boolean = false) => {
+    const errors: string[] = [];
+
+    // Step 1: Identificação
+    if (!data.numeroPlano?.trim()) errors.push("Nº Identificador do Plano");
+    if (!data.unidadeCras) errors.push("Unidade CRAS");
+    if (!data.dataInicial) errors.push("Data Inicial do PAF");
+    if (!data.responsavel?.trim()) errors.push("Responsável Familiar");
+    if (!data.cpf?.trim()) errors.push("CPF");
+    if (data.cpf && data.cpf.replace(/\D/g, '').length !== 11) errors.push("CPF inválido (deve ter 11 dígitos)");
+    if (!data.telefone?.trim()) errors.push("Telefone Principal");
+    if (!data.endereco?.trim()) errors.push("Endereço");
+    if (!data.periodicidade) errors.push("Periodicidade de Acompanhamento");
+    if (!data.demandaInicial?.trim()) errors.push("Demanda Inicial");
+    if (!data.formaAcesso) errors.push("Forma de Acesso");
+    if ((data.formaAcesso === 'Encaminhamento por outras políticas públicas' || data.formaAcesso === 'Outros') && !data.formaAcessoOutros?.trim()) {
+      errors.push(data.formaAcesso === 'Outros' ? "Especificação (Forma de Acesso)" : "Especificação da Política Pública (Forma de Acesso)");
+    }
+    
+    if (data.membros.length === 0) {
+      errors.push("Deve haver pelo menos um membro da família");
+    } else if (data.membros.some(m => !m.nome?.trim() || !m.nascimento || !m.parentesco)) {
+      errors.push("Todos os membros da família devem ter Nome, Data de Nascimento e Parentesco preenchidos");
+    }
+
+    if (!isDraft) {
+      // Step 2: Diagnóstico
+      if (data.vulnerabilidades.length === 0) errors.push("Pelo menos uma Vulnerabilidade (Diagnóstico)");
+      if (data.vulnerabilidades.includes('Outros') && !data.vulnerabilidadesOutros?.trim()) {
+        errors.push("Especificação (Outras Vulnerabilidades)");
+      }
+      if (!data.vulnerabilidadesMutiplasDescricao?.trim()) errors.push("Descrição de Vulnerabilidades Múltiplas");
+      if (!data.potencialidadesGrupoFamiliar?.trim()) errors.push("Potencialidades do Grupo Familiar");
+
+      // Step 3: Serviços & Rede
+      if (!data.programasRendaParticipa) errors.push("Informação se participa de Programas de Renda");
+      if (data.programasRendaParticipa === 'Sim' && data.programasRendaQuais.length === 0 && !data.programasRendaOutros?.trim()) {
+        errors.push("Especifique quais Programas de Renda a família participa");
+      }
+      if (!data.beneficiosEventuaisRecebe) errors.push("Informação se recebe Benefícios Eventuais");
+      if (data.beneficiosEventuaisRecebe === 'Sim' && data.beneficiosEventuaisQuais.length === 0 && !data.beneficiosEventuaisOutros?.trim()) {
+        errors.push("Especifique quais Benefícios Eventuais a família recebe");
+      }
+      if (data.recursosTerritorio.length === 0 && !data.recursosTerritorioOutros?.trim()) {
+        errors.push("Pelo menos um Recurso do Território");
+      }
+
+      // Step 4: Metas
+      if (data.metasFamilia.length === 0) {
+        errors.push("Pelo menos uma Meta da Família");
+      } else if (data.metasFamilia.some(m => !m.meta?.trim() || !m.compromisso?.trim() || !m.prazo?.trim())) {
+        errors.push("Todas as Metas da Família devem ter a Meta, o Compromisso e o Prazo preenchidos");
+      }
+
+      if (data.metasEquipe.length === 0) {
+        errors.push("Pelo menos uma Meta da Equipe Técnica");
+      } else if (data.metasEquipe.some(m => !m.meta?.trim() || !m.compromisso?.trim() || !m.prazo?.trim())) {
+        errors.push("Todas as Metas da Equipe Técnica devem ter a Meta, o Compromisso e o Prazo preenchidos");
+      }
+
+      if (data.estrategias.length === 0 && !data.estrategiasOutras?.trim()) errors.push("Pelo menos uma Estratégia de Ações");
+      if (!data.estrategiasPrazo?.trim()) errors.push("Prazo para cumprimento das Estratégias");
+      if (data.eixosIntervencao.length === 0 && !data.eixosOutros?.trim()) errors.push("Pelo menos um Eixo de Intervenção");
+      
+      if (!data.participacaoFamilia) errors.push("Informação sobre Participação da Família na construção do plano");
+      if (!data.concordanciaFamilia) errors.push("Informação sobre Concordância da Família");
+      if (!data.dataElaboracao) errors.push("Data de Elaboração");
+    }
+
+    if (errors.length > 0) {
+      alert(`Os seguintes campos são obrigatórios para ${isDraft ? 'salvar o rascunho' : 'finalizar o plano'}:\n- ${errors.join("\n- ")}`);
+      return false;
+    }
+    return true;
+  };
+
   const handleSaveClick = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     if (!user) {
       alert("Usuário não autenticado!");
       return;
     }
+    
+    if (!validateRequiredFields(false)) return;
+    
     setIsConfirmModalOpen(true);
   };
 
@@ -241,6 +320,9 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
       alert("Usuário não autenticado!");
       return;
     }
+    
+    if (!validateRequiredFields(true)) return;
+
     setIsSaving(true);
     try {
       const PAFToSave = { ...data, isDraft: true };
@@ -348,6 +430,7 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
             return (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setActiveTab(idx)}
                 className={`flex-1 py-4 px-2 text-xs lg:text-sm font-bold transition-all relative group ${
                   isActive 
@@ -355,17 +438,17 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'
                 }`}
               >
-                <div className="flex flex-col items-center justify-center gap-1">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] transition-colors ${
+                <div className="flex flex-col items-center justify-center gap-1.5">
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all transform ${
                     isActive 
-                      ? 'bg-brand-primary text-white' 
+                      ? 'bg-brand-primary text-white scale-110 shadow-md ring-4 ring-brand-primary/10' 
                       : isCompleted
                         ? 'bg-emerald-100 text-emerald-600'
                         : 'bg-slate-200 text-slate-500 group-hover:bg-slate-300'
                   }`}>
-                    {idx + 1}
+                    {isCompleted ? '✓' : idx + 1}
                   </span>
-                  <span className="truncate w-full text-center">{tab}</span>
+                  <span className={`truncate w-full text-center transition-colors ${isActive ? 'font-black' : 'font-bold'}`}>{tab}</span>
                 </div>
                 {isActive && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-brand-primary animate-in fade-in slide-in-from-bottom-1" />
@@ -405,41 +488,71 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
         </form>
         
         {/* Navigation bottom */}
-        <div className="bg-slate-50 border-t border-slate-200 p-4 md:p-6 flex justify-between items-center">
-          <button 
-            type="button" 
-            onClick={() => setActiveTab(Math.max(0, activeTab - 1))}
-            disabled={activeTab === 0}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${
-              activeTab === 0 
-                ? 'text-slate-300 cursor-not-allowed bg-slate-100/50' 
-                : 'text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm active:scale-95'
-            }`}
-          >
-            <ChevronLeft size={18} />
-            Anterior
-          </button>
+        <div className="bg-slate-50/80 backdrop-blur-sm border-t border-slate-200 p-5 md:p-8 flex flex-col sm:flex-row justify-between items-center gap-6">
+          <div className="order-2 sm:order-1 w-full sm:w-auto">
+            <button 
+              type="button" 
+              onClick={() => {
+                setActiveTab(Math.max(0, activeTab - 1));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              disabled={activeTab === 0}
+              className={`w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${
+                activeTab === 0 
+                  ? 'text-slate-300 cursor-not-allowed bg-slate-100/50 border border-transparent' 
+                  : 'text-slate-700 bg-white border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm active:scale-[0.98]'
+              }`}
+            >
+              <ChevronLeft size={20} />
+              <span>Anterior</span>
+            </button>
+          </div>
+
+          <div className="order-1 sm:order-2 flex flex-col items-center">
+            <div className="flex items-center gap-2 mb-1">
+              {tabs.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === activeTab 
+                      ? 'w-8 bg-brand-primary' 
+                      : i < activeTab 
+                        ? 'w-2 bg-emerald-400' 
+                        : 'w-2 bg-slate-200'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+              Etapa {activeTab + 1} de {tabs.length} — {tabs[activeTab]}
+            </p>
+          </div>
           
-          {activeTab < tabs.length - 1 ? (
-             <button 
-                type="button" 
-                onClick={() => setActiveTab(Math.min(tabs.length - 1, activeTab + 1))}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-brand-primary hover:bg-brand-secondary shadow-md shadow-brand-primary/20 transition-all active:scale-95"
-              >
-                Próximo
-                <ChevronRight size={18} />
-              </button>
-          ) : (
-             <button 
-                type="button"
-                onClick={handleSaveClick} 
-                disabled={isSaving}
-                className="flex items-center gap-2 px-8 py-2.5 rounded-xl font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                <Save size={18} />
-                {isSaving ? 'Salvando...' : 'Finalizar PAF'}
-              </button>
-          )}
+          <div className="order-3 w-full sm:w-auto">
+            {activeTab < tabs.length - 1 ? (
+               <button 
+                  type="button" 
+                  onClick={() => {
+                    setActiveTab(Math.min(tabs.length - 1, activeTab + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-black text-white bg-brand-primary hover:bg-brand-secondary shadow-lg shadow-brand-primary/20 transition-all hover:translate-x-1 active:scale-[0.98]"
+                >
+                  <span>Próximo Passo</span>
+                  <ChevronRight size={20} />
+                </button>
+            ) : (
+               <button 
+                  type="button"
+                  onClick={handleSaveClick} 
+                  disabled={isSaving}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 px-10 py-4 rounded-2xl font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all hover:scale-105 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  <Save size={20} />
+                  <span>{isSaving ? 'Salvando...' : 'Finalizar PAF'}</span>
+                </button>
+            )}
+          </div>
         </div>
 
       </div>
