@@ -30,7 +30,7 @@ export default function FichasAtendimento() {
 
   // Form states
   const [formData, setFormData] = useState<Partial<FichaAtendimento>>({
-    unidadeCras: (userProfile?.unidadeCras === 'Administração') ? '' : (userProfile?.unidadeCras || ''),
+    unidadeCras: (userProfile?.role === 'ADMIN') ? '' : (userProfile?.unidadeCras || ''),
     dataAtendimento: new Date().toISOString().split('T')[0],
     tipoAtendimento: [],
     responsavelFamiliar: '',
@@ -85,7 +85,7 @@ export default function FichasAtendimento() {
     } else {
       setSelectedFicha(null);
       setFormData({
-        unidadeCras: (userProfile?.unidadeCras === 'Administração') ? '' : (userProfile?.unidadeCras || ''),
+        unidadeCras: (userProfile?.role === 'ADMIN') ? '' : (userProfile?.unidadeCras || ''),
         dataAtendimento: new Date().toISOString().split('T')[0],
         tipoAtendimento: [],
         responsavelFamiliar: '',

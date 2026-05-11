@@ -52,32 +52,22 @@ service cloud.firestore {
     function isValidPAF(data) {
       return data.userId is string && data.userId.size() <= 128 &&
              data.createdAt is timestamp &&
-             data.updatedAt is timestamp &&
-             (data.numeroPlano is string && data.numeroPlano.size() <= 50) &&
-             (data.unidadeCras is string && data.unidadeCras.size() <= 100) &&
-             (data.responsavel is string && data.responsavel.size() <= 200) &&
-             (data.cpf is string && data.cpf.size() <= 20) &&
-             (data.telefone is string && data.telefone.size() <= 30) &&
-             (data.endereco is string && data.endereco.size() <= 500) &&
-             (data.situacao is string && data.situacao.size() <= 50) &&
-             (data.membros is list && data.membros.size() <= 50) &&
-             (data.history is list && data.history.size() <= 200) &&
-             (!data.keys().contains('tasks') || (data.tasks is list && data.tasks.size() <= 100)) &&
-             (!data.keys().contains('vulnerabilidades') || (data.vulnerabilidades is list && data.vulnerabilidades.size() <= 100)) &&
-             (!data.keys().contains('situacoes') || (data.situacoes is list && data.situacoes.size() <= 100)) &&
-             (!data.keys().contains('metasFamilia') || (data.metasFamilia is list && data.metasFamilia.size() <= 100)) &&
-             (!data.keys().contains('metasEquipe') || (data.metasEquipe is list && data.metasEquipe.size() <= 100));
+             (data.numeroPlano is string && data.numeroPlano.size() <= 100) &&
+             (data.unidadeCras is string && data.unidadeCras.size() <= 200) &&
+             (data.responsavel is string && data.responsavel.size() <= 500) &&
+             (data.cpf is string && data.cpf.size() <= 50) &&
+             (data.situacao is string && data.situacao.size() <= 100);
     }
 
     function isValidFicha(data) {
       return data.keys().hasAll(['unidadeCras', 'dataAtendimento', 'responsavelFamiliar', 'tecnicoId', 'tecnicoNome', 'tipoAtendimento', 'descricao', 'createdAt']) &&
-             data.unidadeCras is string && data.unidadeCras.size() <= 100 &&
-             data.dataAtendimento is string && data.dataAtendimento.size() <= 20 &&
-             data.responsavelFamiliar is string && data.responsavelFamiliar.size() <= 200 &&
+             data.unidadeCras is string && data.unidadeCras.size() <= 200 &&
+             data.dataAtendimento is string && data.dataAtendimento.size() <= 100 &&
+             data.responsavelFamiliar is string && data.responsavelFamiliar.size() <= 500 &&
              data.tecnicoId is string && data.tecnicoId == request.auth.uid &&
-             data.tecnicoNome is string && data.tecnicoNome.size() <= 200 &&
+             data.tecnicoNome is string && data.tecnicoNome.size() <= 500 &&
              data.tipoAtendimento is list && data.tipoAtendimento.size() > 0 &&
-             data.descricao is string && data.descricao.size() <= 10000 &&
+             data.descricao is string && data.descricao.size() <= 50000 &&
              data.createdAt is timestamp;
     }
 
@@ -98,16 +88,15 @@ service cloud.firestore {
       
       allow list: if isSignedIn() && (
         isAdmin() || 
-        (getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO'] && (resource.data.unidadeCras == getUserUnit() || getUserUnit() == 'Administração'))
+        (getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO'] && (resource.data.unidadeCras == getUserUnit() || getUserRole() == 'ADMIN'))
       );
 
       allow create: if isSignedIn() 
                     && isValidId(pafId)
                     && isValidPAF(incoming())
                     && incoming().userId == request.auth.uid
-                    && (isAdmin() || getUserUnit() == 'Administração' || incoming().unidadeCras == getUserUnit())
-                    && incoming().createdAt == request.time
-                    && incoming().updatedAt == request.time;
+                    && (isAdmin() || getUserRole() == 'ADMIN' || incoming().unidadeCras == getUserUnit())
+                    && incoming().createdAt == request.time;
 
       allow update: if isSignedIn()
                     && isValidId(pafId)
@@ -133,13 +122,13 @@ service cloud.firestore {
       
       allow list: if isSignedIn() && (
         isAdmin() || 
-        (getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO'] && (resource.data.unidadeCras == getUserUnit() || getUserUnit() == 'Administração'))
+        (getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO'] && (resource.data.unidadeCras == getUserUnit() || getUserRole() == 'ADMIN'))
       );
 
       allow create: if isSignedIn()
                     && isValidId(fichaId)
                     && isValidFicha(incoming())
-                    && (isAdmin() || getUserUnit() == 'Administração' || incoming().unidadeCras == getUserUnit())
+                    && (isAdmin() || getUserRole() == 'ADMIN' || incoming().unidadeCras == getUserUnit())
                     && incoming().createdAt == request.time;
 
       allow update: if isSignedIn()

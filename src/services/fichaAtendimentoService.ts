@@ -45,7 +45,7 @@ export const getFichasAtendimento = async (crasUnit?: string) => {
   try {
     let q = query(collection(db, COLLECTION_NAME), orderBy('dataAtendimento', 'desc'));
     
-    if (crasUnit && crasUnit !== 'Administração') {
+    if (crasUnit && crasUnit !== '') {
       q = query(
         collection(db, COLLECTION_NAME), 
         where('unidadeCras', '==', crasUnit),

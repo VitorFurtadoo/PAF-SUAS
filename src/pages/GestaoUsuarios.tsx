@@ -203,7 +203,7 @@ export default function GestaoUsuarios() {
                   <div className="flex items-center gap-2 text-slate-500 pt-2">
                     <Building size={14} className="text-brand-primary" />
                     <span className="text-xs font-bold uppercase tracking-tighter">
-                      {u.unidadeCras === 'Administração' ? 'Administração' : `CRAS ${u.unidadeCras}`}
+                      {u.role === 'ADMIN' ? 'Administração Geral' : `CRAS ${u.unidadeCras}`}
                     </span>
                   </div>
                 </div>

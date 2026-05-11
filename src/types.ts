@@ -3,7 +3,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role: 'TECNICO' | 'COORDENADOR' | 'ADMIN';
-  unidadeCras: 'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia' | 'Administração';
+  unidadeCras: 'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia';
   createdAt?: any;
 }
 

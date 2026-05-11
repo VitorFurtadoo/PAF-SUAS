@@ -139,7 +139,7 @@ export const permanentlyDeletePAF = async (pafId: string) => {
 export const getPAFs = async (userProfile: UserProfile, userId: string) => {
   try {
     let q;
-    if (userProfile.role === 'ADMIN' || userProfile.unidadeCras === 'Administração') {
+    if (userProfile.role === 'ADMIN') {
       q = query(collection(db, 'pafs'));
     } else if (userProfile.role === 'COORDENADOR' || userProfile.role === 'TECNICO') {
       q = query(
@@ -232,7 +232,7 @@ export const searchPAFByCPF = async (cpf: string, userProfile: UserProfile) => {
     if (!cpf) return null;
     
     let qExact;
-    if (userProfile.role === 'ADMIN' || userProfile.unidadeCras === 'Administração') {
+    if (userProfile.role === 'ADMIN') {
       qExact = query(
         collection(db, 'pafs'),
         where('cpf', '==', cpf)

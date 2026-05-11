@@ -36,9 +36,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
   const loadTecnicos = async () => {
     if (tecnicosLoaded || loadingTecnicos) return;
 
-    const isGlobal = userProfile?.unidadeCras === 'Administração';
-
-    const crasToUse = !isAdmin && !isGlobal && userProfile?.unidadeCras 
+    const crasToUse = !isAdmin && userProfile?.unidadeCras 
       ? userProfile.unidadeCras 
       : data.unidadeCras;
 
@@ -63,9 +61,8 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
     const fetchOnChange = async () => {
       // If we already loaded tecnicos and CRAS changes, clear/reload if it was already "used"
       // or just reset state to force reload on next click
-      const isGlobal = userProfile?.unidadeCras === 'Administração';
       
-      const crasToUse = !isAdmin && !isGlobal && userProfile?.unidadeCras 
+      const crasToUse = !isAdmin && userProfile?.unidadeCras 
         ? userProfile.unidadeCras 
         : data.unidadeCras;
 
@@ -314,7 +311,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label id="cras-label" className="block text-sm font-semibold text-slate-700 mb-1">Unidade CRAS <span className="text-red-500">*</span></label>
-          {(!isAdmin && userProfile?.unidadeCras && userProfile.unidadeCras !== 'Administração') ? (
+          {(!isAdmin && userProfile?.unidadeCras) ? (
             <div className="w-full p-3 rounded-lg border border-slate-200 bg-slate-100 font-bold text-brand-primary flex items-center">
               CRAS {userProfile.unidadeCras}
             </div>
@@ -325,7 +322,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
               onChange={e => handleChange('unidadeCras', e.target.value)} 
               className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary bg-slate-50/50" 
               required 
-              disabled={!isAdmin && userProfile?.unidadeCras !== 'Administração'}
+              disabled={!isAdmin}
             >
               <option value="">Selecione o CRAS</option>
               <option value="Morada do Sol">CRAS Morada do Sol</option>

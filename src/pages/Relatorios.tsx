@@ -272,7 +272,7 @@ export default function Relatorios() {
       </div>
 
       <div className="mb-8 p-4 md:p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        {(userProfile?.role === 'ADMIN' || userProfile?.unidadeCras === 'Administração') && (
+        {(userProfile?.role === 'ADMIN') && (
           <div className="pb-4 border-b border-slate-100 mb-2">
              <h3 className="text-xs font-black text-brand-primary uppercase tracking-widest mb-3">Filtrar por Unidade (Administrativo)</h3>
              <div className="flex flex-wrap gap-2">

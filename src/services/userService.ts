@@ -16,7 +16,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
  * Busca todos os usuários de uma unidade específica
  */
 export async function getTeclicosPorUnidade(unidadeCras: string): Promise<UserProfile[]> {
-  if (unidadeCras === 'Administração') return getAllUsers();
+  if (!unidadeCras || unidadeCras === 'Administração') return getAllUsers();
   
   const path = 'users';
   try {

@@ -78,12 +78,12 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
   const [data, setData] = useState<PAFData>(() => {
     if (initialPafData) return initialPafData;
     
-    // Auto fill CRAS if the user is a technician or coordinator and it's not a global unit
-    const isGlobal = userProfile?.unidadeCras === 'Administração';
+    // Auto fill CRAS if the user is a technician or coordinator
+    const isAdmin = userProfile?.role === 'ADMIN';
 
     return {
       ...defaultInitialData,
-      unidadeCras: isGlobal ? '' : (userProfile?.unidadeCras || ''),
+      unidadeCras: isAdmin ? '' : (userProfile?.unidadeCras || ''),
       tecnicoId1: user?.uid || '',
       tecnicoNome1: userProfile?.name || '',
     };
