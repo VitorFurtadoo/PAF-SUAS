@@ -1,0 +1,223 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role and CRAS assignment.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "unidadeCras": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "name", "role", "unidadeCras", "createdAt"]
+    },
+    "PAF": {
+      "title": "PAF (Plano de Acompanhamento Familiar)",
+      "description": "Formulário de plano de acompanhamento familiar.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID do usuário (assistente social / profissional) que criou o PAF."
+        },
+        "numeroPlano": { "type": "string" },
+        "isDraft": { "type": "boolean" },
+        "deletedAt": { "type": "string" },
+        "unidadeCras": { "type": "string" },
+        "tecnicoId1": { "type": "string" },
+        "tecnicoNome1": { "type": "string" },
+        "tecnicoId2": { "type": "string" },
+        "tecnicoNome2": { "type": "string" },
+        "responsavel": { "type": "string" },
+        "telefone": { "type": "string" },
+        "telefone2": { "type": "string" },
+        "emailContato": { "type": "string" },
+        "cpf": { "type": "string" },
+        "endereco": { "type": "string" },
+        "dataInicial": { "type": "string" },
+        "situacao": { "type": "string" },
+        "dataSituacao": { "type": "string" },
+        "periodicidade": { "type": "string" },
+        "demandaInicial": { "type": "string" },
+        "formaAcesso": { "type": "string" },
+        "formaAcessoOutros": { "type": "string" },
+        "membros": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "history": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "tasks": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "vulnerabilidades": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "vulnerabilidadesMutiplasDescricao": { "type": "string" },
+        "potencialidadesGrupoFamiliar": { "type": "string" },
+        "situacoes": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "servicosBasica": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "servicosEspecialMedia": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "servicosEspecialAlta": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "programasRendaParticipa": { "type": "string" },
+        "programasRendaQuais": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "programasRendaOutros": { "type": "string" },
+        "beneficiosEventuaisRecebe": { "type": "string" },
+        "beneficiosEventuaisQuais": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "beneficiosEventuaisOutros": { "type": "string" },
+        "recursosTerritorio": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "recursosTerritorioOutros": { "type": "string" },
+        "metasFamilia": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "metasEquipe": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "estrategias": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "estrategiasOutras": { "type": "string" },
+        "estrategiasPrazo": { "type": "string" },
+        "eixosIntervencao": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "eixosOutros": { "type": "string" },
+        "encaminhamentoSituacao": { "type": "string" },
+        "encaminhamentoDestino": { "type": "string" },
+        "encaminhamentoParaQuem": { "type": "string" },
+        "participacaoFamilia": { "type": "string" },
+        "participacaoSimNao": { "type": "string" },
+        "participacaoExplicacao": { "type": "string" },
+        "concordanciaFamilia": { "type": "string" },
+        "concordanciaPontosNao": { "type": "string" },
+        "concordanciaExplicacao": { "type": "string" },
+        "informacoesNaoSolicitadas": { "type": "string" },
+        "dataElaboracao": { "type": "string" },
+        "observacoesElaboracao": { "type": "string" },
+        "dataEncerramento": { "type": "string" },
+        "motivoEncerramento": { "type": "string" },
+        "motivoOutros": { "type": "string" },
+        "proximaVisitaData": { "type": "string" },
+        "proximaVisitaHora": { "type": "string" },
+        "proximaVisitaObservacoes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "unidadeCras", "responsavel", "cpf", "createdAt", "updatedAt"]
+    },
+    "Suggestion": {
+      "title": "Suggestion",
+      "description": "User suggestions for system improvements.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userUnit": { "type": "string" },
+        "area": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "userName", "userUnit", "area", "description", "status", "createdAt"]
+    },
+    "FichaAtendimento": {
+      "title": "Ficha de Atendimento",
+      "description": "Registro diário de atendimentos socioassistenciais.",
+      "type": "object",
+      "properties": {
+        "unidadeCras": { "type": "string" },
+        "dataAtendimento": { "type": "string" },
+        "responsavelFamiliar": { "type": "string" },
+        "cpf": { "type": "string" },
+        "tecnicoId": { "type": "string" },
+        "tecnicoNome": { "type": "string" },
+        "tipoAtendimento": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "descricao": { "type": "string" },
+        "encaminhamentos": { "type": "string" },
+        "descricaoEncaminhamento": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["unidadeCras", "dataAtendimento", "responsavelFamiliar", "tecnicoId", "tecnicoNome", "tipoAtendimento", "descricao", "createdAt"]
+    },
+    "BugReport": {
+      "title": "Bug Report",
+      "description": "Error reports and user feedback on system issues.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { 
+          "type": "string",
+          "enum": ["bug", "suggestion", "question"]
+        },
+        "pageUrl": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { 
+          "type": "string",
+          "enum": ["new", "investigating", "fixed", "closed"]
+        }
+      },
+      "required": ["userId", "userEmail", "userName", "description", "type", "pageUrl", "userAgent", "createdAt", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles defining their roles and assigned CRAS unit."
+    },
+    "/pafs/{pafId}": {
+      "schema": { "$ref": "#/entities/PAF" },
+      "description": "Planos de Acompanhamento Familiar."
+    },
+    "/suggestions/{suggestionId}": {
+      "schema": { "$ref": "#/entities/Suggestion" },
+      "description": "User feedback and improvement ideas."
+    },
+    "/fichas_atendimento/{fichaId}": {
+      "schema": { "$ref": "#/entities/FichaAtendimento" },
+      "description": "Diário de atendimentos e evoluções."
+    },
+    "/bug_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/BugReport" },
+      "description": "Relatórios de erros e bugs técnicos."
+    }
+  }
+}

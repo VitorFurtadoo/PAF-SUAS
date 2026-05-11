@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #0284c7;
+  --color-brand-secondary: #0c4a6e;
+  --color-brand-light: #f0f9ff;
+  --color-brand-bg: #f8fafc;
+  --color-brand-accent: #e0f2fe;
+}
+
+body {
+  background-color: var(--color-brand-bg);
+  color: #0f172a;
+}
