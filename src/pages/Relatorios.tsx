@@ -20,6 +20,7 @@ import {
 export default function Relatorios() {
   const { user, userProfile } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   const [pafs, setPafs] = useState<any[]>([]);
   const [selectedCras, setSelectedCras] = useState('todos');
   const [periodo, setPeriodo] = useState('mes'); // 'mes', 'trimestre', 'ano', 'todos', 'personalizado'
@@ -43,6 +44,7 @@ export default function Relatorios() {
       }
     };
     fetchDados();
+    setIsMounted(true);
   }, [user, userProfile]);
 
   // Filtrar com base no período, tipo de serviço e programa de renda
@@ -176,6 +178,15 @@ export default function Relatorios() {
   }, {});
   
   const chartData = Object.values(pafsPorMes);
+  
+  // Agrupar por Unidade
+  const pafsPorUnidade = filteredPafs.reduce((acc: any, paf) => {
+    const unit = paf.unidadeCras || 'Sem Unidade';
+    if (!acc[unit]) acc[unit] = { name: unit, total: 0 };
+    acc[unit].total += 1;
+    return acc;
+  }, {});
+  const unitDistribData = Object.values(pafsPorUnidade);
 
   // Agrupar por tipo de serviço para o novo relatório
   const countBasica = filteredPafs.filter(p => p.servicosBasica && p.servicosBasica.length > 0).length;
@@ -401,14 +412,41 @@ export default function Relatorios() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-6">
+          <h3 className="text-base md:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+            Equilíbrio por Unidade
+          </h3>
+          <div className="h-[250px] md:h-[300px] w-full min-h-[250px]">
+            {isMounted && unitDistribData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                <BarChart data={unitDistribData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}} 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="total" fill="#10b981" radius={[4, 4, 0, 0]} barSize={30} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm italic">
+                Nenhum dado por unidade.
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-6">
           <h3 className="text-base md:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
             <div className="w-1 h-5 bg-brand-primary rounded-full"></div>
             Volume de PAFs no Período
           </h3>
-          <div className="h-[250px] md:h-[300px] w-full">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[250px] md:h-[300px] w-full min-h-[250px]">
+            {isMounted && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
@@ -418,8 +456,8 @@ export default function Relatorios() {
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                   />
                   <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 700 }} />
-                  <Bar dataKey="Criados" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={window.innerWidth < 768 ? 15 : 30} />
-                  <Bar dataKey="Encerrados" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={window.innerWidth < 768 ? 15 : 30} />
+                  <Bar dataKey="Criados" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Bar dataKey="Encerrados" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -432,9 +470,9 @@ export default function Relatorios() {
         
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col">
           <h3 className="text-base md:text-lg font-bold text-slate-800 mb-6">Status dos Planos</h3>
-          <div className="h-[300px] w-full flex items-center justify-center">
-            {totalCriados > 0 ? (
-               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[300px] w-full flex items-center justify-center min-h-[300px]">
+            {isMounted && totalCriados > 0 ? (
+               <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                <PieChart>
                  <Pie
                    data={statusData}
@@ -473,7 +511,7 @@ export default function Relatorios() {
           </div>
 
           <div className="h-[250px] w-full">
-            {filteredPafs.length > 0 ? (
+            {isMounted && filteredPafs.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart 
                   data={servicosData} 
@@ -520,7 +558,7 @@ export default function Relatorios() {
           </div>
 
           <div className="h-[250px] w-full flex items-center justify-center">
-            {totalCriados > 0 ? (
+            {isMounted && totalCriados > 0 ? (
                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                <PieChart>
                  <Pie

@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { LayoutDashboard, Users, FileText, Calendar, Link as LinkIcon, FileBarChart, HelpCircle, LogOut, Clock, Type, Plus, Minus, Lightbulb, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Calendar, Link as LinkIcon, FileBarChart, HelpCircle, LogOut, Clock, Type, Plus, Minus, Lightbulb, AlertCircle, Package, FileSpreadsheet } from 'lucide-react';
 import HelpModal from './HelpModal';
 
 import { useAuth } from '../AuthProvider';
 import { useAccessibility } from '../contexts/AccessibilityContext';
 
 interface SidebarProps {
-  currentView: 'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports';
-  onViewChange: (view: 'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports') => void;
+  currentView: 'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports' | 'calendario' | 'planejamento';
+  onViewChange: (view: 'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports' | 'calendario' | 'planejamento') => void;
 }
 
 export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
@@ -21,6 +21,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'planos', label: 'Planos de Acompanhamento', icon: Users },
     { id: 'fichas', label: 'Ficha de Atendimento', icon: FileText },
     { id: 'calendario', label: 'Agenda de Visitas', icon: Calendar },
+    { id: 'planejamento', label: 'Planejamento 2026', icon: FileSpreadsheet },
     { id: 'relatorios', label: 'Relatórios', icon: FileBarChart },
   ];
 
@@ -95,7 +96,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => {
-                  if (item.id === 'dashboard' || item.id === 'planos' || item.id === 'form' || item.id === 'relatorios' || item.id === 'equipe' || item.id === 'sugestoes' || item.id === 'fichas' || item.id === 'bug-reports' || item.id === 'calendario') {
+                  if (item.id === 'dashboard' || item.id === 'planos' || item.id === 'form' || item.id === 'relatorios' || item.id === 'equipe' || item.id === 'sugestoes' || item.id === 'fichas' || item.id === 'bug-reports' || item.id === 'calendario' || item.id === 'planejamento') {
                     onViewChange(item.id as any);
                     setIsMobileMenuOpen(false);
                   }

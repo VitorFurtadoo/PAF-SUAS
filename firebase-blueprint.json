@@ -198,6 +198,48 @@
         }
       },
       "required": ["userId", "userEmail", "userName", "description", "type", "pageUrl", "userAgent", "createdAt", "status"]
+    },
+    "PlanejamentoInstrumental": {
+      "title": "Planejamento Instrumental",
+      "description": "Planejamento de atividades socioassistenciais por CRAS.",
+      "type": "object",
+      "properties": {
+        "unidadeCras": { "type": "string" },
+        "data": { "type": "string" },
+        "tematica": { "type": "string" },
+        "atividadeAcao": { "type": "string" },
+        "servico": { "type": "string" },
+        "local": { "type": "string" },
+        "materiaisNecessarios": { "type": "string" },
+        "quantidadeMateriais": { "type": "number" },
+        "quantidadeFamilias": { "type": "number" },
+        "quantidadeParticipantes": { "type": "number" },
+        "quantidadeLanches": { "type": "number" },
+        "tecnicoId": { "type": "string" },
+        "tecnicoNome": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["unidadeCras", "data", "tematica", "servico", "tecnicoId", "createdAt"]
+    },
+    "Notice": {
+      "title": "Aviso / Comunicado",
+      "description": "Avisos e comunicados exibidos na dashboard.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { 
+          "type": "string",
+          "enum": ["INFO", "WARNING", "IMPORTANT", "ACHIEVEMENT"]
+        },
+        "active": { "type": "boolean" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "content", "type", "active", "authorId", "authorName", "createdAt"]
     }
   },
   "firestore": {
@@ -220,6 +262,14 @@
     "/bug_reports/{reportId}": {
       "schema": { "$ref": "#/entities/BugReport" },
       "description": "Relatórios de erros e bugs técnicos."
+    },
+    "/planejamentos/{planejamentoId}": {
+      "schema": { "$ref": "#/entities/PlanejamentoInstrumental" },
+      "description": "Instrumental de planejamento dos serviços socioassistenciais."
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Comunicados e avisos gerais da rede."
     }
   }
 }

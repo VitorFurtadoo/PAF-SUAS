@@ -14,13 +14,15 @@ import Sugestoes from './pages/Sugestoes';
 import FichasAtendimento from './pages/FichasAtendimento';
 import AdminBugReports from './pages/AdminBugReports';
 import CalendarioVisitas from './pages/CalendarioVisitas';
+import PlanejamentoInstrumental from './pages/PlanejamentoInstrumental';
 import type { PAFData } from './types';
 import ErrorReportButton from './components/ErrorReportButton';
 import { useAuth } from './AuthProvider';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const { userProfile } = useAuth();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports' | 'calendario'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports' | 'calendario' | 'planejamento'>('dashboard');
   const [selectedPaf, setSelectedPaf] = useState<PAFData | null>(null);
   const [fichasDefaultCreate, setFichasDefaultCreate] = useState(false);
 
@@ -60,6 +62,8 @@ export default function App() {
           <FichasAtendimento defaultCreate={fichasDefaultCreate} />
         ) : currentView === 'calendario' ? (
           <CalendarioVisitas onEditPlan={handleEditPlan} />
+        ) : currentView === 'planejamento' ? (
+          <PlanejamentoInstrumental />
         ) : currentView === 'bug-reports' ? (
           userProfile?.role === 'ADMIN' ? <AdminBugReports /> : <Dashboard onNewPlan={handleNewPlan} onNewFicha={handleNewFicha} />
         ) : (
@@ -67,6 +71,7 @@ export default function App() {
         )}
       </main>
       <ErrorReportButton />
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

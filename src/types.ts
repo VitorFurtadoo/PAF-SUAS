@@ -143,6 +143,8 @@ export interface PAFData {
   dataEncerramento: string;
   motivoEncerramento: string;
   motivoOutros: string;
+  createdAt?: any;
+  updatedAt?: any;
 
   // AGENDAMENTO DE VISITA
   proximaVisitaData?: string;
@@ -237,6 +239,38 @@ export interface FichaAtendimento {
   formaAcesso?: string;
   encaminhamentos?: string;
   descricaoEncaminhamento?: string;
+  createdAt: any;
+  updatedAt?: any;
+}
+
+export interface PlanejamentoInstrumental {
+  id?: string;
+  unidadeCras: 'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia';
+  data: string; // ISO date string
+  tematica: string;
+  atividadeAcao: string;
+  servico: 'PAIF' | 'SCFV' | 'SPSBDGC' | 'Outros';
+  local: string;
+  materiaisNecessarios: string;
+  quantidadeMateriais: number;
+  quantidadeFamilias: number;
+  quantidadeParticipantes: number;
+  quantidadeLanches: number;
+  tecnicoId: string;
+  tecnicoNome: string;
+  observacoes?: string;
+  createdAt: any;
+  updatedAt?: any;
+}
+
+export interface Notice {
+  id?: string;
+  title: string;
+  content: string;
+  type: 'INFO' | 'WARNING' | 'IMPORTANT' | 'ACHIEVEMENT';
+  active: boolean;
+  authorId: string;
+  authorName: string;
   createdAt: any;
   updatedAt?: any;
 }

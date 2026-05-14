@@ -27,15 +27,28 @@ import {
   MoreVertical,
   ExternalLink,
   ChevronDown,
-  Info
+  Info,
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
-import { getPAFs } from '../services/pafService';
+import { getPAFs, updatePAFVisit } from '../services/pafService';
 import type { PAFData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 
 interface CalendarioVisitasProps {
   onEditPlan: (paf: PAFData) => void;
+}
+
+interface ExtendedVisita {
+  id: string;
+  paf: PAFData;
+  data: string;
+  hora: string;
+  observacoes?: string;
+  status: 'Pendente' | 'Realizada';
+  tecnico?: string;
 }
 
 export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps) {
@@ -49,7 +62,41 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
     if (userProfile?.role === 'ADMIN') return 'todos';
     return userProfile?.unidadeCras || 'todos';
   });
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+
+  const handleConfirmVisit = async (v: PAFData) => {
+    if (!user || !userProfile || !v.id) return;
+    
+    setConfirmingId(v.id);
+    try {
+      const visitHistoryEntry = {
+        id: crypto.randomUUID(),
+        date: v.proximaVisitaData || format(new Date(), 'yyyy-MM-dd'),
+        time: v.proximaVisitaHora || format(new Date(), 'HH:mm'),
+        tecnico: userProfile.name,
+        status: 'Realizada',
+        motivo: 'Confirmada via agenda de visitas'
+      };
+
+      await updatePAFVisit(v.id, user.uid, userProfile.name, visitHistoryEntry);
+      
+      // Update local state to remove the visit from today's list visually
+      setPafs(prev => prev.map(p => p.id === v.id ? {
+        ...p,
+        proximaVisitaData: null,
+        proximaVisitaHora: null,
+        proximaVisitaObservacoes: null
+      } : p));
+      
+      toast.success('Visita confirmada como realizada!');
+    } catch (error) {
+      console.error('Erro ao confirmar visita:', error);
+      toast.error('Erro ao confirmar visita.');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDayStr(dateStr);
@@ -83,23 +130,56 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
   ];
 
   // Agrupar visitas por data - CONSIDERANDO FILTROS para que os pontos no calendário combinem com a lista
-  const filteredVisitasMap = pafs.reduce((acc: Record<string, PAFData[]>, paf) => {
-    if (paf.proximaVisitaData && !paf.deletedAt) {
-      // Aplicar os mesmos filtros da lista para que o calendário seja honesto
-      const matchSearch = (paf.responsavel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (paf.cpf || '').includes(searchTerm);
-      const matchCras = selectedCras === 'todos' || 
-                        (paf.unidadeCras && paf.unidadeCras.trim() === selectedCras.trim());
+  const filteredVisitasMap = pafs.reduce((acc: Record<string, ExtendedVisita[]>, paf) => {
+    if (paf.deletedAt) return acc;
 
-      if (matchSearch && matchCras) {
-        const dateKey = paf.proximaVisitaData.includes('T') ? paf.proximaVisitaData.split('T')[0] : paf.proximaVisitaData;
-        
-        if (!acc[dateKey]) {
-          acc[dateKey] = [];
-        }
-        acc[dateKey].push(paf);
-      }
+    const matchSearch = (paf.responsavel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        (paf.cpf || '').includes(searchTerm);
+    const matchCras = selectedCras === 'todos' || 
+                      (paf.unidadeCras && paf.unidadeCras.trim() === selectedCras.trim());
+
+    if (!matchSearch || !matchCras) return acc;
+
+    // 1. Adicionar visita agendada (Pendente)
+    if (paf.proximaVisitaData) {
+      const dateKey = paf.proximaVisitaData.includes('T') ? paf.proximaVisitaData.split('T')[0] : paf.proximaVisitaData;
+      if (!acc[dateKey]) acc[dateKey] = [];
+      
+      acc[dateKey].push({
+        id: `pending-${paf.id}`,
+        paf,
+        data: dateKey,
+        hora: paf.proximaVisitaHora || '',
+        observacoes: paf.proximaVisitaObservacoes || '',
+        status: 'Pendente',
+        tecnico: paf.tecnicoNome1
+      });
     }
+
+    // 2. Adicionar visitas do histórico (Realizadas)
+    if (paf.visitasHistory && Array.isArray(paf.visitasHistory)) {
+      paf.visitasHistory.forEach((h: any) => {
+        if (h.status === 'Realizada' || h.status === 'concluida') {
+          // Normalizar data (pode vir como dataAgendada ou date dependendo de como foi salvo)
+          const rawDate = h.date || h.dataAgendada || h.dataRealizacao;
+          if (!rawDate) return;
+          
+          const dateKey = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+          if (!acc[dateKey]) acc[dateKey] = [];
+
+          acc[dateKey].push({
+            id: `history-${h.id}`,
+            paf,
+            data: dateKey,
+            hora: h.time || h.horaAgendada || '',
+            observacoes: h.motivo || h.observacoesOriginais || '',
+            status: 'Realizada',
+            tecnico: h.tecnico || paf.tecnicoNome1
+          });
+        }
+      });
+    }
+    
     return acc;
   }, {});
 
@@ -124,7 +204,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
             <ChevronLeft size={20} />
           </button>
           <div className="px-4 py-1 text-center min-w-[150px]">
-            <span className="text-sm font-black text-slate-800 uppercase tracking-widest">
+            <span className={`text-sm font-black uppercase tracking-widest ${isSameMonth(currentMonth, new Date()) ? 'text-brand-primary' : 'text-slate-800'}`}>
               {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
             </span>
           </div>
@@ -192,9 +272,16 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
               </span>
               {dayVisitas.length > 0 && (
                 <div className="flex -space-x-1">
-                   <div className="w-4 h-4 bg-amber-500 rounded-full border-2 border-white flex items-center justify-center">
-                      <span className="text-[8px] font-black text-white">{dayVisitas.length}</span>
-                   </div>
+                  {dayVisitas.some(v => v.status === 'Pendente') && (
+                    <div className="w-4 h-4 bg-amber-500 rounded-full border-2 border-white flex items-center justify-center">
+                       <span className="text-[8px] font-black text-white">{dayVisitas.filter(v => v.status === 'Pendente').length}</span>
+                    </div>
+                  )}
+                  {dayVisitas.some(v => v.status === 'Realizada') && (
+                    <div className="w-4 h-4 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+                       <span className="text-[8px] font-black text-white">{dayVisitas.filter(v => v.status === 'Realizada').length}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -204,14 +291,15 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                 <div 
                   key={idx} 
                   className={`px-1.5 py-0.5 rounded text-[9px] font-bold truncate border flex items-center gap-1
-                    ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
-                      v.unidadeCras === 'Nagibão' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                      v.unidadeCras === 'Camboatã' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                    ${v.status === 'Realizada' ? 'bg-slate-100 text-slate-500 border-slate-200 line-through opacity-70' : 
+                      v.paf.unidadeCras === 'Morada do Sol' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
+                      v.paf.unidadeCras === 'Nagibão' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                      v.paf.unidadeCras === 'Camboatã' ? 'bg-purple-50 text-purple-700 border-purple-100' :
                       'bg-amber-50 text-amber-700 border-amber-100'}
                   `}
                 >
                   <Users size={8} />
-                  {v.responsavel.split(' ')[0]}
+                  {(v.paf.responsavel || '').split(' ')[0]}
                 </div>
               ))}
               {dayVisitas.length > 3 && (
@@ -298,21 +386,38 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all group"
+                  className={`bg-white border rounded-2xl p-5 hover:shadow-md transition-all group relative overflow-hidden ${
+                    v.status === 'Realizada' ? 'border-emerald-100 bg-emerald-50/10' : 'border-slate-200'
+                  }`}
                 >
+                  {v.status === 'Realizada' && (
+                    <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-emerald-500/10 rounded-full flex items-end justify-start pb-6 pl-6">
+                      <CheckCircle size={32} className="text-emerald-500/20" />
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-sm
-                      ${v.unidadeCras === 'Morada do Sol' ? 'bg-blue-600 text-white' : 
-                        v.unidadeCras === 'Nagibão' ? 'bg-emerald-600 text-white' :
-                        v.unidadeCras === 'Camboatã' ? 'bg-purple-600 text-white' :
-                        'bg-amber-600 text-white'}
-                    `}>
-                      <MapPin size={12} />
-                      {v.unidadeCras}
+                    <div className="flex gap-2">
+                      <div className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-sm
+                        ${v.paf.unidadeCras === 'Morada do Sol' ? 'bg-blue-600 text-white' : 
+                          v.paf.unidadeCras === 'Nagibão' ? 'bg-emerald-600 text-white' :
+                          v.paf.unidadeCras === 'Camboatã' ? 'bg-purple-600 text-white' :
+                          'bg-amber-600 text-white'}
+                      `}>
+                        <MapPin size={12} />
+                        {v.paf.unidadeCras}
+                      </div>
+                      
+                      {v.status === 'Realizada' && (
+                        <div className="px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-2 shadow-sm">
+                          <CheckCircle size={12} />
+                          Realizada
+                        </div>
+                      )}
                     </div>
                     <button 
-                      onClick={() => onEditPlan(v)}
-                      className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/5 rounded-lg transition-all"
+                      onClick={() => onEditPlan(v.paf)}
+                      className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/5 rounded-lg transition-all z-10"
                     >
                       <ExternalLink size={18} />
                     </button>
@@ -320,8 +425,8 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
 
                   <div className="mb-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Responsável Familiar</p>
-                    <h3 className="font-black text-lg text-slate-800 group-hover:text-brand-primary transition-colors leading-tight">{v.responsavel}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1">CPF: {v.cpf || '---'}</p>
+                    <h3 className="font-black text-lg text-slate-800 group-hover:text-brand-primary transition-colors leading-tight">{v.paf.responsavel}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">CPF: {v.paf.cpf || '---'}</p>
                   </div>
                   
                   <div className="space-y-3">
@@ -330,8 +435,10 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                         <Clock size={16} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Horário Agendado</p>
-                        <span>{v.proximaVisitaHora || 'Hora não definida'}</span>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">
+                          {v.status === 'Realizada' ? 'Horário da Visita' : 'Horário Agendado'}
+                        </p>
+                        <span>{v.hora || 'Hora não definida'}</span>
                       </div>
                     </div>
                     
@@ -341,7 +448,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Endereço</p>
-                        <span className="line-clamp-1">{v.endereco}</span>
+                        <span className="line-clamp-1">{v.paf.endereco}</span>
                       </div>
                     </div>
 
@@ -350,30 +457,50 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                         <Users size={16} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Técnico Principal</p>
-                        <span>{v.tecnicoNome1 || 'Técnico não atribuído'}</span>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Técnico</p>
+                        <span>{v.tecnico || 'Técnico não atribuído'}</span>
                       </div>
                     </div>
                   </div>
 
-                  {v.proximaVisitaObservacoes && (
+                  {v.observacoes && (
                     <div className="mt-4 pt-4 border-t border-slate-50">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Observações do Agendamento</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                        {v.status === 'Realizada' ? 'Observações da Realização' : 'Observações do Agendamento'}
+                      </p>
                       <div className="flex gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <Info size={14} className="text-brand-primary shrink-0 mt-0.5" />
                         <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
-                          {v.proximaVisitaObservacoes}
+                          {v.observacoes}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  <button 
-                    onClick={() => onEditPlan(v)}
-                    className="w-full mt-6 py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 border border-slate-100 group-hover:border-transparent"
-                  >
-                    Abrir Plano (PAF)
-                  </button>
+                  <div className="mt-6 flex flex-col gap-2">
+                    {v.status === 'Pendente' && (
+                      <button 
+                        onClick={() => handleConfirmVisit(v.paf)}
+                        disabled={confirmingId === v.paf.id}
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      >
+                        {confirmingId === v.paf.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <CheckCircle size={16} />
+                        )}
+                        Confirmar Realização
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => onEditPlan(v.paf)}
+                      className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 border border-slate-100 group-hover:border-transparent flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink size={14} />
+                      Abrir Plano (PAF)
+                    </button>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>

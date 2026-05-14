@@ -32,14 +32,14 @@ export const updatePAF = async (pafId: string, userId: string, userName: string,
   try {
     const pafRef = doc(db, 'pafs', pafId);
     
-    const historyEntry = {
+    const historyEntry = sanitizeData({
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
       userId,
       userName,
       action: explicitAction || 'Edição',
       summary: data.isDraft ? 'Rascunho atualizado' : 'Dados do PAF atualizados'
-    };
+    });
 
     await updateDoc(pafRef, sanitizeData({
       ...data,
@@ -70,7 +70,7 @@ export const updatePAFVisit = async (pafId: string, userId: string, userName: st
     
     const updateData: any = {
       updatedAt: serverTimestamp(),
-      visitasHistory: arrayUnion(visitHistoryEntry)
+      visitasHistory: arrayUnion(sanitizeData(visitHistoryEntry))
     };
 
     if (nextVisitData) {
@@ -83,14 +83,14 @@ export const updatePAFVisit = async (pafId: string, userId: string, userName: st
       updateData.proximaVisitaObservacoes = null;
     }
 
-    const historyEntry = {
+    const historyEntry = sanitizeData({
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
       userId,
       userName,
       action: 'Visita',
       summary: `Visita ${visitHistoryEntry.status}: ${visitHistoryEntry.motivo || 'Sem observações'}`
-    };
+    });
     
     updateData.history = arrayUnion(historyEntry);
 

@@ -23,8 +23,8 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.matches('(?i)conieoliveira@gmail\\.com') ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        getUserRole() == 'ADMIN'
+        getUserRole() == 'ADMIN' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
@@ -65,6 +65,27 @@ service cloud.firestore {
              data.tecnicoNome is string && data.tecnicoNome.size() <= 500 &&
              data.tipoAtendimento is list && data.tipoAtendimento.size() > 0 &&
              data.descricao is string && data.descricao.size() <= 50000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidBenefit(data) {
+      return data.keys().hasAll(['familiaId', 'responsavel', 'unidadeCras', 'tipoBeneficio', 'tecnicoId', 'createdAt']) &&
+             data.familiaId is string &&
+             data.responsavel is string &&
+             data.unidadeCras is string &&
+             data.tipoBeneficio is string &&
+             data.tecnicoId is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidNotice(data) {
+      return data.keys().hasAll(['title', 'content', 'type', 'active', 'authorId', 'authorName', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.type in ['INFO', 'WARNING', 'IMPORTANT', 'ACHIEVEMENT'] &&
+             data.active is bool &&
+             data.authorId is string &&
+             data.authorName is string &&
              data.createdAt is timestamp;
     }
 
@@ -150,10 +171,31 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow read, update, delete: if isAdmin();
     }
+
+    match /planejamentos/{planejamentoId} {
+      allow read: if isSignedIn() && (isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']);
+      allow create, update: if isSignedIn() && (isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']);
+      allow delete: if isAdmin() || (isSignedIn() && getUserRole() == 'COORDENADOR' && resource.data.unidadeCras == getUserUnit());
+    }
+
+    match /benefit_concessions/{concessionId} {
+      allow get: if isSignedIn() && (request.auth.uid == 'WJ6s3Yr5VnTXt0dYDchPghhg3Y33' || isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']);
+      allow list: if isSignedIn() && (request.auth.uid == 'WJ6s3Yr5VnTXt0dYDchPghhg3Y33' || isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']);
+      allow create: if isSignedIn() && (isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']) && isValidBenefit(incoming());
+      allow update: if isSignedIn() && (isAdmin() || getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO']) && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['responsavel', 'unidadeCras', 'tipoBeneficio', 'especificacao', 'quantidade', 'valorEstimado', 'observacao']));
+      allow delete: if isAdmin();
+    }
     
     match /admins/{adminId} {
       allow read: if isSignedIn();
       allow write: if false; // Only manageable via console
+    }
+
+    match /notices/{noticeId} {
+      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.active == true));
+      allow create: if isAdmin() && isValidNotice(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidNotice(incoming()) && (incoming().updatedAt == request.time || incoming().updatedAt == existing().updatedAt);
+      allow delete: if isAdmin();
     }
   }
 }
