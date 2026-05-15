@@ -245,7 +245,7 @@ export interface FichaAtendimento {
 
 export interface PlanejamentoInstrumental {
   id?: string;
-  unidadeCras: 'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia';
+  unidadeCras: 'Morada do Sol' | 'Nagibão' | 'Camboatã' | 'Jaderlândia' | 'Todos os CRAS' | 'Cras Camboatã' | 'Cras Morada do Sol' | 'Cras Jaderlândia' | 'Cras Nagibão';
   data: string; // ISO date string
   tematica: string;
   atividadeAcao: string;

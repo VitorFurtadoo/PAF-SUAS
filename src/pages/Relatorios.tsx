@@ -419,7 +419,7 @@ export default function Relatorios() {
           </h3>
           <div className="h-[250px] md:h-[300px] w-full min-h-[250px]">
             {isMounted && unitDistribData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={unitDistribData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
@@ -446,7 +446,7 @@ export default function Relatorios() {
           </h3>
           <div className="h-[250px] md:h-[300px] w-full min-h-[250px]">
             {isMounted && chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
@@ -472,7 +472,7 @@ export default function Relatorios() {
           <h3 className="text-base md:text-lg font-bold text-slate-800 mb-6">Status dos Planos</h3>
           <div className="h-[300px] w-full flex items-center justify-center min-h-[300px]">
             {isMounted && totalCriados > 0 ? (
-               <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                <PieChart>
                  <Pie
                    data={statusData}

@@ -232,52 +232,8 @@ export default function PAFForm({ onBack, initialPafData }: PAFFormProps) {
       errors.push("Todos os membros da família devem ter Nome, Data de Nascimento e Parentesco preenchidos");
     }
 
-    if (!isDraft) {
-      // Step 2: Diagnóstico
-      if (data.vulnerabilidades.length === 0) errors.push("Pelo menos uma Vulnerabilidade (Diagnóstico)");
-      if (data.vulnerabilidades.includes('Outros') && !data.vulnerabilidadesOutros?.trim()) {
-        errors.push("Especificação (Outras Vulnerabilidades)");
-      }
-      if (!data.vulnerabilidadesMutiplasDescricao?.trim()) errors.push("Descrição de Vulnerabilidades Múltiplas");
-      if (!data.potencialidadesGrupoFamiliar?.trim()) errors.push("Potencialidades do Grupo Familiar");
-
-      // Step 3: Serviços & Rede
-      if (!data.programasRendaParticipa) errors.push("Informação se participa de Programas de Renda");
-      if (data.programasRendaParticipa === 'Sim' && data.programasRendaQuais.length === 0 && !data.programasRendaOutros?.trim()) {
-        errors.push("Especifique quais Programas de Renda a família participa");
-      }
-      if (!data.beneficiosEventuaisRecebe) errors.push("Informação se recebe Benefícios Eventuais");
-      if (data.beneficiosEventuaisRecebe === 'Sim' && data.beneficiosEventuaisQuais.length === 0 && !data.beneficiosEventuaisOutros?.trim()) {
-        errors.push("Especifique quais Benefícios Eventuais a família recebe");
-      }
-      if (data.recursosTerritorio.length === 0 && !data.recursosTerritorioOutros?.trim()) {
-        errors.push("Pelo menos um Recurso do Território");
-      }
-
-      // Step 4: Metas
-      if (data.metasFamilia.length === 0) {
-        errors.push("Pelo menos uma Meta da Família");
-      } else if (data.metasFamilia.some(m => !m.meta?.trim() || !m.compromisso?.trim() || !m.prazo?.trim())) {
-        errors.push("Todas as Metas da Família devem ter a Meta, o Compromisso e o Prazo preenchidos");
-      }
-
-      if (data.metasEquipe.length === 0) {
-        errors.push("Pelo menos uma Meta da Equipe Técnica");
-      } else if (data.metasEquipe.some(m => !m.meta?.trim() || !m.compromisso?.trim() || !m.prazo?.trim())) {
-        errors.push("Todas as Metas da Equipe Técnica devem ter a Meta, o Compromisso e o Prazo preenchidos");
-      }
-
-      if (data.estrategias.length === 0 && !data.estrategiasOutras?.trim()) errors.push("Pelo menos uma Estratégia de Ações");
-      if (!data.estrategiasPrazo?.trim()) errors.push("Prazo para cumprimento das Estratégias");
-      if (data.eixosIntervencao.length === 0 && !data.eixosOutros?.trim()) errors.push("Pelo menos um Eixo de Intervenção");
-      
-      if (!data.participacaoFamilia) errors.push("Informação sobre Participação da Família na construção do plano");
-      if (!data.concordanciaFamilia) errors.push("Informação sobre Concordância da Família");
-      if (!data.dataElaboracao) errors.push("Data de Elaboração");
-    }
-
     if (errors.length > 0) {
-      alert(`Os seguintes campos são obrigatórios para ${isDraft ? 'salvar o rascunho' : 'finalizar o plano'}:\n- ${errors.join("\n- ")}`);
+      alert(`Os seguintes campos da aba de Identificação são obrigatórios:\n- ${errors.join("\n- ")}`);
       return false;
     }
     return true;

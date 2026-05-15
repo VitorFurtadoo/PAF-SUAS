@@ -91,7 +91,6 @@ export default function Step2Diagnostico({ data, handleChange, toggleVulnerabili
               value={data.vulnerabilidadesOutros || ''} 
               onChange={e => handleChange('vulnerabilidadesOutros', e.target.value)}
               className="w-full p-2.5 rounded-lg border border-slate-200 bg-white"
-              required
             />
           </motion.div>
         )}

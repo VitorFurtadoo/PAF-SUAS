@@ -284,7 +284,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
           </div>
           <div className="flex-1 w-full">
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-black text-brand-secondary uppercase tracking-[0.2em]">Nº Identificador do Plano (Controle Interno)</label>
+              <label className="block text-xs font-black text-brand-secondary uppercase tracking-[0.2em]">Nº Identificador do Plano (Controle Interno) <span className="text-red-500">*</span></label>
               <button 
                 type="button" 
                 onClick={() => generateSequentialNumber(data.unidadeCras)}
@@ -409,7 +409,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
           )}
         </div>
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Data Inicial do PAF</label>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Data Inicial do PAF <span className="text-red-500">*</span></label>
           <input type="date" value={data.dataInicial} onChange={e => handleChange('dataInicial', e.target.value)} className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary bg-slate-50/50" />
         </div>
       </div>
@@ -460,7 +460,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
           <input type="email" value={data.emailContato || ''} onChange={e => handleChange('emailContato', e.target.value)} className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary bg-slate-50/50" placeholder="exemplo@email.com" />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">Endereço Completo</label>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Endereço Completo <span className="text-red-500">*</span></label>
           <input type="text" value={data.endereco} onChange={e => handleChange('endereco', e.target.value)} className="w-full p-3 rounded-lg border border-slate-200 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary bg-slate-50/50" placeholder="Rua, Número, Bairro..." />
         </div>
       </div>
@@ -484,7 +484,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
           )}
         </div>
         <div>
-           <label className="block text-sm font-semibold text-slate-700 mb-2">Periodicidade de Acompanhamento</label>
+           <label className="block text-sm font-semibold text-slate-700 mb-2">Periodicidade de Acompanhamento <span className="text-red-500">*</span></label>
            <div className="flex flex-col space-y-2">
             {['Semanal', 'Quinzenal', 'Mensal'].map(per => (
               <label key={per} className="flex items-center space-x-3 cursor-pointer">
@@ -498,7 +498,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
 
       <div className="bg-white p-5 rounded-lg border border-slate-200 space-y-6">
         <div>
-          <label className="block text-sm font-bold text-slate-800 mb-2">Demanda Inicial</label>
+          <label className="block text-sm font-bold text-slate-800 mb-2">Demanda Inicial <span className="text-red-500">*</span></label>
           <textarea 
             value={data.demandaInicial || ''} 
             onChange={e => handleChange('demandaInicial', e.target.value)}
@@ -508,7 +508,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
         </div>
 
         <div>
-          <label className="block text-sm font-bold text-slate-800 mb-3">Forma de Acesso</label>
+          <label className="block text-sm font-bold text-slate-800 mb-3">Forma de Acesso <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               'Demanda espontânea',
@@ -554,7 +554,7 @@ export default function Step1Identificacao({ data, handleChange, setPAFData, han
 
       <div className="border-t border-slate-200 pt-6 mt-8">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-brand-secondary">Membros da Família em Acompanhamento</h3>
+          <h3 className="text-lg font-bold text-brand-secondary">Membros da Família em Acompanhamento <span className="text-red-500 text-sm">*</span></h3>
           <button type="button" onClick={addMembro} className="text-sm bg-brand-light text-brand-secondary hover:bg-brand-accent px-3 py-1.5 rounded-lg font-medium flex items-center transition border border-brand-accent/50">
             <Plus size={16} className="mr-1" /> Adicionar
           </button>

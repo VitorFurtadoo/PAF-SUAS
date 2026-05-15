@@ -49,7 +49,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMont
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
-const UNIDADES_LIST = ['Cras Camboatã', 'Cras Morada do Sol', 'Cras Jaderlândia', 'Cras Nagibão'] as const;
+const UNIDADES_LIST = ['Cras Camboatã', 'Cras Morada do Sol', 'Cras Jaderlândia', 'Cras Nagibão', 'Todos os CRAS'] as const;
 const SERVICOS_LIST = ['PAIF', 'SCFV', 'SPSBDGC', 'Outros'] as const;
 
 export default function PlanejamentoInstrumentalUI() {
@@ -60,12 +60,25 @@ export default function PlanejamentoInstrumentalUI() {
   const [selectedUnit, setSelectedUnit] = useState<string>(userProfile?.role === 'ADMIN' ? 'Todos' : userProfile?.unidadeCras || 'Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlanejamentoInstrumental | null>(null);
-  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'grid' | 'dashboard'>('dashboard');
+  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'grid' | 'dashboard'>(userProfile?.role === 'ADMIN' ? 'dashboard' : 'calendar');
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (userProfile && userProfile.role !== 'ADMIN' && viewMode === 'dashboard') {
+      setViewMode('calendar');
+    }
+  }, [userProfile]);
+
+  const normalizeUnit = (unit?: string) => {
+    if (!unit) return 'Cras Camboatã';
+    if (unit === 'Todos os CRAS' || unit === 'Todos') return 'Todos os CRAS';
+    if (unit.startsWith('Cras ')) return unit;
+    return `Cras ${unit}`;
+  };
 
   // Form State
   const [formData, setFormData] = useState({
-    unidadeCras: (userProfile?.unidadeCras || 'Cras Camboatã') as any,
+    unidadeCras: normalizeUnit(userProfile?.unidadeCras) as any,
     data: format(new Date(), 'yyyy-MM-dd'),
     tematica: '',
     atividadeAcao: '',
@@ -199,7 +212,7 @@ export default function PlanejamentoInstrumentalUI() {
           onClick={() => {
             setEditingItem(null);
             setFormData({
-              unidadeCras: (userProfile?.unidadeCras || 'Cras Camboatã') as any,
+              unidadeCras: normalizeUnit(userProfile?.unidadeCras) as any,
               data: format(new Date(), 'yyyy-MM-dd'),
               tematica: '',
               atividadeAcao: '',
@@ -260,11 +273,11 @@ export default function PlanejamentoInstrumentalUI() {
         {/* View Selection */}
         <div className="flex bg-slate-100/50 p-1 rounded-2xl">
           {[
-            { id: 'dashboard', icon: Layers, label: 'Resumo' },
+            { id: 'dashboard', icon: Layers, label: 'Resumo', adminOnly: true },
             { id: 'list', icon: List, label: 'Lista' },
             { id: 'grid', icon: LayoutGrid, label: 'Cards' },
             { id: 'calendar', icon: Calendar, label: 'Agenda' }
-          ].map((view) => (
+          ].filter(view => !view.adminOnly || userProfile?.role === 'ADMIN').map((view) => (
             <button 
               key={view.id}
               onClick={() => setViewMode(view.id as any)}
@@ -317,7 +330,7 @@ export default function PlanejamentoInstrumentalUI() {
             transition={{ duration: 0.3 }}
             className="space-y-8"
           >
-            {viewMode === 'dashboard' ? (
+            {viewMode === 'dashboard' && userProfile?.role === 'ADMIN' ? (
               <div className="space-y-10">
                 
                 {/* Dashboard Hero Grid */}
@@ -594,7 +607,7 @@ export default function PlanejamentoInstrumentalUI() {
                           onClick={() => {
                             if (!inCurrentMonth) return;
                             setFormData({
-                              unidadeCras: (userProfile?.unidadeCras || 'Cras Camboatã') as any,
+                              unidadeCras: normalizeUnit(userProfile?.unidadeCras) as any,
                               data: format(day, 'yyyy-MM-dd'),
                               tematica: '',
                               atividadeAcao: '',
