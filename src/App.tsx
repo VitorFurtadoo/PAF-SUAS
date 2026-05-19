@@ -25,6 +25,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'planos' | 'form' | 'relatorios' | 'equipe' | 'sugestoes' | 'fichas' | 'bug-reports' | 'calendario' | 'planejamento'>('dashboard');
   const [selectedPaf, setSelectedPaf] = useState<PAFData | null>(null);
   const [fichasDefaultCreate, setFichasDefaultCreate] = useState(false);
+  const [selectedFichaId, setSelectedFichaId] = useState<string | null>(null);
 
   const handleEditPlan = (paf: PAFData) => {
     setSelectedPaf(paf);
@@ -59,9 +60,19 @@ export default function App() {
         ) : currentView === 'sugestoes' ? (
           <Sugestoes />
         ) : currentView === 'fichas' ? (
-          <FichasAtendimento defaultCreate={fichasDefaultCreate} />
+          <FichasAtendimento 
+            defaultCreate={fichasDefaultCreate} 
+            selectedFichaId={selectedFichaId} 
+            onClearSelectedFichaId={() => setSelectedFichaId(null)} 
+          />
         ) : currentView === 'calendario' ? (
-          <CalendarioVisitas onEditPlan={handleEditPlan} />
+          <CalendarioVisitas 
+            onEditPlan={handleEditPlan} 
+            onOpenFicha={(fichaId) => {
+              setSelectedFichaId(fichaId);
+              setCurrentView('fichas');
+            }} 
+          />
         ) : currentView === 'planejamento' ? (
           <PlanejamentoInstrumental />
         ) : currentView === 'bug-reports' ? (

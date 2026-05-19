@@ -33,12 +33,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import { getPAFs, updatePAFVisit } from '../services/pafService';
-import type { PAFData } from '../types';
+import { getFichasAtendimento, saveFichaAtendimento } from '../services/fichaAtendimentoService';
+import type { PAFData, FichaAtendimento } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
 interface CalendarioVisitasProps {
   onEditPlan: (paf: PAFData) => void;
+  onOpenFicha?: (fichaId: string) => void;
 }
 
 interface ExtendedVisita {
@@ -51,11 +53,12 @@ interface ExtendedVisita {
   tecnico?: string;
 }
 
-export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps) {
+export default function CalendarioVisitas({ onEditPlan, onOpenFicha }: CalendarioVisitasProps) {
   const { user, userProfile } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [pafs, setPafs] = useState<PAFData[]>([]);
+  const [fichas, setFichas] = useState<FichaAtendimento[]>([]);
   const [selectedDayStr, setSelectedDayStr] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCras, setSelectedCras] = useState(() => {
@@ -65,31 +68,79 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  const handleOpenTarget = (vPaf: PAFData) => {
+    if (vPaf.isFicha) {
+      if (onOpenFicha) {
+        onOpenFicha(vPaf.id!);
+      } else {
+        toast.info("Agendamento vinculado à Ficha de Atendimento");
+      }
+    } else {
+      onEditPlan(vPaf);
+    }
+  };
+
   const handleConfirmVisit = async (v: PAFData) => {
     if (!user || !userProfile || !v.id) return;
     
     setConfirmingId(v.id);
     try {
-      const visitHistoryEntry = {
-        id: crypto.randomUUID(),
-        date: v.proximaVisitaData || format(new Date(), 'yyyy-MM-dd'),
-        time: v.proximaVisitaHora || format(new Date(), 'HH:mm'),
-        tecnico: userProfile.name,
-        status: 'Realizada',
-        motivo: 'Confirmada via agenda de visitas'
-      };
+      if (v.isFicha) {
+        const originalFicha = fichas.find(f => f.id === v.id);
+        if (!originalFicha) throw new Error("Ficha não encontrada");
 
-      await updatePAFVisit(v.id, user.uid, userProfile.name, visitHistoryEntry);
-      
-      // Update local state to remove the visit from today's list visually
-      setPafs(prev => prev.map(p => p.id === v.id ? {
-        ...p,
-        proximaVisitaData: null,
-        proximaVisitaHora: null,
-        proximaVisitaObservacoes: null
-      } : p));
-      
-      toast.success('Visita confirmada como realizada!');
+        const visitDateText = originalFicha.proximaVisitaData!.split('-').reverse().join('/');
+        const noteText = originalFicha.proximaVisitaObservacoes ? `\nMotivo/Obs: ${originalFicha.proximaVisitaObservacoes}` : '';
+        const newEvolEntry = {
+          id: Math.random().toString(36).substring(2, 11),
+          data: new Date().toISOString().split('T')[0],
+          tecnicoId: user.uid,
+          tecnicoNome: userProfile.name,
+          descricao: `Visita domiciliar realizada (agendada para ${visitDateText}).${noteText}`
+        };
+
+        const visitHistoryEntry = {
+          id: crypto.randomUUID(),
+          date: originalFicha.proximaVisitaData,
+          time: originalFicha.proximaVisitaHora || '',
+          tecnico: userProfile.name,
+          status: 'Realizada',
+          motivo: originalFicha.proximaVisitaObservacoes || 'Confirmada via agenda de visitas'
+        };
+
+        const updatedFicha = {
+          ...originalFicha,
+          proximaVisitaData: '',
+          proximaVisitaHora: '',
+          proximaVisitaObservacoes: '',
+          evolucoes: [...(originalFicha.evolucoes || []), newEvolEntry],
+          visitasHistory: [...(originalFicha.visitasHistory || []), visitHistoryEntry]
+        };
+
+        await saveFichaAtendimento(updatedFicha);
+        setFichas(prev => prev.map(f => f.id === v.id ? updatedFicha : f));
+        toast.success('Visita da Ficha de Atendimento confirmada como realizada!');
+      } else {
+        const visitHistoryEntry = {
+          id: crypto.randomUUID(),
+          date: v.proximaVisitaData || format(new Date(), 'yyyy-MM-dd'),
+          time: v.proximaVisitaHora || format(new Date(), 'HH:mm'),
+          tecnico: userProfile.name,
+          status: 'Realizada',
+          motivo: 'Confirmada via agenda de visitas'
+        };
+
+        await updatePAFVisit(v.id, user.uid, userProfile.name, visitHistoryEntry);
+        
+        setPafs(prev => prev.map(p => p.id === v.id ? {
+          ...p,
+          proximaVisitaData: null,
+          proximaVisitaHora: null,
+          proximaVisitaObservacoes: null
+        } : p));
+        
+        toast.success('Visita do PAF confirmada como realizada!');
+      }
     } catch (error) {
       console.error('Erro ao confirmar visita:', error);
       toast.error('Erro ao confirmar visita.');
@@ -100,7 +151,6 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDayStr(dateStr);
-    // Smooth scroll to list when a day is clicked on mobile or small screens
     setTimeout(() => {
       listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -113,6 +163,10 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
       try {
         const data = await getPAFs(userProfile!, user.uid);
         setPafs(data);
+
+        const crasToFetch = userProfile?.role === 'ADMIN' ? undefined : userProfile?.unidadeCras;
+        const fichasData = await getFichasAtendimento(crasToFetch);
+        setFichas(fichasData || []);
       } catch (error) {
         console.error('Erro ao buscar visitas:', error);
       } finally {
@@ -130,58 +184,129 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
   ];
 
   // Agrupar visitas por data - CONSIDERANDO FILTROS para que os pontos no calendário combinem com a lista
-  const filteredVisitasMap = pafs.reduce((acc: Record<string, ExtendedVisita[]>, paf) => {
-    if (paf.deletedAt) return acc;
+  const filteredVisitasMap = React.useMemo(() => {
+    const acc: Record<string, ExtendedVisita[]> = {};
 
-    const matchSearch = (paf.responsavel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (paf.cpf || '').includes(searchTerm);
-    const matchCras = selectedCras === 'todos' || 
-                      (paf.unidadeCras && paf.unidadeCras.trim() === selectedCras.trim());
+    // 1. Processar pafs
+    pafs.forEach(paf => {
+      if (paf.deletedAt) return;
 
-    if (!matchSearch || !matchCras) return acc;
+      const matchSearch = (paf.responsavel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (paf.cpf || '').includes(searchTerm);
+      const matchCras = selectedCras === 'todos' || 
+                        (paf.unidadeCras && paf.unidadeCras.trim() === selectedCras.trim());
 
-    // 1. Adicionar visita agendada (Pendente)
-    if (paf.proximaVisitaData) {
-      const dateKey = paf.proximaVisitaData.includes('T') ? paf.proximaVisitaData.split('T')[0] : paf.proximaVisitaData;
-      if (!acc[dateKey]) acc[dateKey] = [];
-      
-      acc[dateKey].push({
-        id: `pending-${paf.id}`,
-        paf,
-        data: dateKey,
-        hora: paf.proximaVisitaHora || '',
-        observacoes: paf.proximaVisitaObservacoes || '',
-        status: 'Pendente',
-        tecnico: paf.tecnicoNome1
-      });
-    }
+      if (!matchSearch || !matchCras) return;
 
-    // 2. Adicionar visitas do histórico (Realizadas)
-    if (paf.visitasHistory && Array.isArray(paf.visitasHistory)) {
-      paf.visitasHistory.forEach((h: any) => {
-        if (h.status === 'Realizada' || h.status === 'concluida') {
-          // Normalizar data (pode vir como dataAgendada ou date dependendo de como foi salvo)
+      // Visita agendada (Pendente)
+      if (paf.proximaVisitaData) {
+        const dateKey = paf.proximaVisitaData.includes('T') ? paf.proximaVisitaData.split('T')[0] : paf.proximaVisitaData;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        
+        acc[dateKey].push({
+          id: `pending-${paf.id}`,
+          paf,
+          data: dateKey,
+          hora: paf.proximaVisitaHora || '',
+          observacoes: paf.proximaVisitaObservacoes || '',
+          status: 'Pendente',
+          tecnico: paf.tecnicoNome1
+        });
+      }
+
+      // Visitas do histórico (Realizadas)
+      if (paf.visitasHistory && Array.isArray(paf.visitasHistory)) {
+        paf.visitasHistory.forEach((h: any) => {
+          if (h.status === 'Realizada' || h.status === 'concluida') {
+            const rawDate = h.date || h.dataAgendada || h.dataRealizacao;
+            if (!rawDate) return;
+            
+            const dateKey = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
+            if (!acc[dateKey]) acc[dateKey] = [];
+
+            acc[dateKey].push({
+              id: `history-${h.id}`,
+              paf,
+              data: dateKey,
+              hora: h.time || h.horaAgendada || '',
+              observacoes: h.motivo || h.observacoesOriginais || '',
+              status: 'Realizada',
+              tecnico: h.tecnico || paf.tecnicoNome1
+            });
+          }
+        });
+      }
+    });
+
+    // 2. Processar fichas
+    fichas.forEach(ficha => {
+      const matchSearch = (ficha.responsavelFamiliar || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (ficha.cpf || '').includes(searchTerm);
+      const matchCras = selectedCras === 'todos' || 
+                        (ficha.unidadeCras && ficha.unidadeCras.trim() === selectedCras.trim());
+
+      if (!matchSearch || !matchCras) return;
+
+      // Pendente
+      if (ficha.proximaVisitaData) {
+        const dateKey = ficha.proximaVisitaData.includes('T') ? ficha.proximaVisitaData.split('T')[0] : ficha.proximaVisitaData;
+        if (!acc[dateKey]) acc[dateKey] = [];
+
+        const mockPaf = {
+          id: ficha.id,
+          responsavel: ficha.responsavelFamiliar,
+          cpf: ficha.cpf || '',
+          unidadeCras: ficha.unidadeCras as any,
+          endereco: 'Endereço registrado na Ficha de Atendimento',
+          tecnicoNome1: ficha.tecnicoNome,
+          isFicha: true
+        } as any as PAFData;
+
+        acc[dateKey].push({
+          id: `pending-ficha-${ficha.id}`,
+          paf: mockPaf,
+          data: dateKey,
+          hora: ficha.proximaVisitaHora || '',
+          observacoes: ficha.proximaVisitaObservacoes || '',
+          status: 'Pendente',
+          tecnico: ficha.tecnicoNome
+        });
+      }
+
+      // Histórico
+      if (ficha.visitasHistory && Array.isArray(ficha.visitasHistory)) {
+        ficha.visitasHistory.forEach((h: any) => {
           const rawDate = h.date || h.dataAgendada || h.dataRealizacao;
           if (!rawDate) return;
           
           const dateKey = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
           if (!acc[dateKey]) acc[dateKey] = [];
 
+          const mockPaf = {
+            id: ficha.id,
+            responsavel: ficha.responsavelFamiliar,
+            cpf: ficha.cpf || '',
+            unidadeCras: ficha.unidadeCras as any,
+            endereco: 'Endereço registrado na Ficha de Atendimento',
+            tecnicoNome1: ficha.tecnicoNome,
+            isFicha: true
+          } as any as PAFData;
+
           acc[dateKey].push({
-            id: `history-${h.id}`,
-            paf,
+            id: `history-ficha-${h.id}`,
+            paf: mockPaf,
             data: dateKey,
-            hora: h.time || h.horaAgendada || '',
-            observacoes: h.motivo || h.observacoesOriginais || '',
+            hora: h.time || '',
+            observacoes: h.motivo || '',
             status: 'Realizada',
-            tecnico: h.tecnico || paf.tecnicoNome1
+            tecnico: h.tecnico || ficha.tecnicoNome
           });
-        }
-      });
-    }
-    
+        });
+      }
+    });
+
     return acc;
-  }, {});
+  }, [pafs, fichas, searchTerm, selectedCras]);
 
   const renderHeader = () => {
     return (
@@ -416,7 +541,7 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                       )}
                     </div>
                     <button 
-                      onClick={() => onEditPlan(v.paf)}
+                      onClick={() => handleOpenTarget(v.paf)}
                       className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-brand-primary/5 rounded-lg transition-all z-10"
                     >
                       <ExternalLink size={18} />
@@ -494,11 +619,11 @@ export default function CalendarioVisitas({ onEditPlan }: CalendarioVisitasProps
                     )}
                     
                     <button 
-                      onClick={() => onEditPlan(v.paf)}
+                      onClick={() => handleOpenTarget(v.paf)}
                       className="w-full py-2.5 bg-slate-50 hover:bg-brand-primary hover:text-white text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 border border-slate-100 group-hover:border-transparent flex items-center justify-center gap-2"
                     >
                       <ExternalLink size={14} />
-                      Abrir Plano (PAF)
+                      {v.paf.isFicha ? 'Abrir Ficha de Atendimento' : 'Abrir Plano (PAF)'}
                     </button>
                   </div>
                 </motion.div>

@@ -12,7 +12,8 @@ import {
   ChevronRight,
   ClipboardCheck,
   AlertCircle,
-  Download
+  Download,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import { getFichasAtendimento, saveFichaAtendimento, deleteFichaAtendimento } from '../services/fichaAtendimentoService';
@@ -23,9 +24,15 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface FichasAtendimentoProps {
   defaultCreate?: boolean;
+  selectedFichaId?: string | null;
+  onClearSelectedFichaId?: () => void;
 }
 
-export default function FichasAtendimento({ defaultCreate = false }: FichasAtendimentoProps) {
+export default function FichasAtendimento({ 
+  defaultCreate = false,
+  selectedFichaId = null,
+  onClearSelectedFichaId
+}: FichasAtendimentoProps) {
   const { user, userProfile } = useAuth();
   const [fichas, setFichas] = useState<FichaAtendimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +50,23 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
   const [newEvolDate, setNewEvolDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAddingEvol, setIsAddingEvol] = useState(false);
   const [evolSaving, setEvolSaving] = useState(false);
+
+  // States for quick visit scheduling from within Ficha
+  const [isQuickScheduling, setIsQuickScheduling] = useState(false);
+  const [quickVisitData, setQuickVisitData] = useState({ date: '', time: '', obs: '' });
+
+  // Trigger opening a selected ficha from calendar reference
+  useEffect(() => {
+    if (selectedFichaId && fichas.length > 0) {
+      const found = fichas.find(f => f.id === selectedFichaId);
+      if (found) {
+        handleOpenPanel('view', found);
+      }
+      if (onClearSelectedFichaId) {
+        onClearSelectedFichaId();
+      }
+    }
+  }, [selectedFichaId, fichas]);
 
   useEffect(() => {
     if (defaultCreate) {
@@ -81,7 +105,10 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     tipoAtendimentoOutro: '',
     descricao: '',
     encaminhamentos: '',
-    descricaoEncaminhamento: ''
+    descricaoEncaminhamento: '',
+    proximaVisitaData: '',
+    proximaVisitaHora: '',
+    proximaVisitaObservacoes: ''
   });
 
   const maskCPF = (value: string) => {
@@ -135,7 +162,10 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
       setFormData({
         ...ficha,
         tipoAtendimento: Array.isArray(ficha.tipoAtendimento) ? ficha.tipoAtendimento : [ficha.tipoAtendimento],
-        tipoAtendimentoOutro: ficha.tipoAtendimentoOutro || ''
+        tipoAtendimentoOutro: ficha.tipoAtendimentoOutro || '',
+        proximaVisitaData: ficha.proximaVisitaData || '',
+        proximaVisitaHora: ficha.proximaVisitaHora || '',
+        proximaVisitaObservacoes: ficha.proximaVisitaObservacoes || ''
       });
     } else {
       setSelectedFicha(null);
@@ -152,7 +182,10 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
         formaAcesso: '',
         descricao: '',
         encaminhamentos: '',
-        descricaoEncaminhamento: ''
+        descricaoEncaminhamento: '',
+        proximaVisitaData: '',
+        proximaVisitaHora: '',
+        proximaVisitaObservacoes: ''
       });
     }
     setShowPanel(true);
@@ -620,6 +653,215 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           </div>
                         )}
 
+                        {/* 📅 AGENDAMENTO DE VISITA DOMICILIAR */}
+                        <div className="border-t border-slate-100 pt-6 mt-6 space-y-4">
+                          <h4 className="text-sm font-black text-brand-secondary uppercase tracking-widest flex items-center gap-2">
+                            <Calendar size={16} className="text-amber-600" /> Agenda de Visita Domiciliar
+                          </h4>
+
+                          {selectedFicha.proximaVisitaData ? (
+                            <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-150 space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white p-4 rounded-2xl border border-amber-50">
+                                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-1">Data da Visita</span>
+                                  <span className="font-bold text-slate-700">
+                                    {selectedFicha.proximaVisitaData.split('-').reverse().join('/')}
+                                  </span>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl border border-amber-50">
+                                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-1">Horário</span>
+                                  <span className="font-bold text-slate-700">{selectedFicha.proximaVisitaHora || 'Não definido'}</span>
+                                </div>
+                              </div>
+
+                              {selectedFicha.proximaVisitaObservacoes && (
+                                <div className="bg-white p-4 rounded-2xl border border-amber-50">
+                                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-1">Observações / Motivo</span>
+                                  <p className="text-xs text-slate-600 font-medium whitespace-pre-wrap">{selectedFicha.proximaVisitaObservacoes}</p>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (window.confirm('Deseja confirmar a realização desta visita?')) {
+                                      try {
+                                        // 1. Add an evolution history entry
+                                        const visitDateText = selectedFicha.proximaVisitaData!.split('-').reverse().join('/');
+                                        const noteText = selectedFicha.proximaVisitaObservacoes ? `\nMotivo/Obs: ${selectedFicha.proximaVisitaObservacoes}` : '';
+                                        const newEvolEntry = {
+                                          id: Math.random().toString(36).substring(2, 11),
+                                          data: new Date().toISOString().split('T')[0],
+                                          tecnicoId: user?.uid || '',
+                                          tecnicoNome: userProfile?.name || 'Técnico',
+                                          descricao: `Visita domiciliar realizada (agendada para ${visitDateText}).${noteText}`
+                                        };
+
+                                        // 2. Add as historical visit
+                                        const visitHistoryEntry = {
+                                          id: crypto.randomUUID(),
+                                          date: selectedFicha.proximaVisitaData,
+                                          time: selectedFicha.proximaVisitaHora || '',
+                                          tecnico: userProfile?.name || 'Técnico',
+                                          status: 'Realizada',
+                                          motivo: selectedFicha.proximaVisitaObservacoes || 'Confirmada via ficha de atendimento'
+                                        };
+
+                                        const updatedFicha = {
+                                          ...selectedFicha,
+                                          proximaVisitaData: '',
+                                          proximaVisitaHora: '',
+                                          proximaVisitaObservacoes: '',
+                                          evolucoes: [...(selectedFicha.evolucoes || []), newEvolEntry],
+                                          visitasHistory: [...(selectedFicha.visitasHistory || []), visitHistoryEntry]
+                                        };
+
+                                        await saveFichaAtendimento(updatedFicha);
+                                        setSelectedFicha(updatedFicha);
+                                        setFichas(fichas.map(f => f.id === selectedFicha.id ? updatedFicha : f));
+                                        alert('Visita confirmada e registrada no histórico de evoluções!');
+                                      } catch (error) {
+                                        alert('Erro ao confirmar visita.');
+                                      }
+                                    }
+                                  }}
+                                  className="flex-1 py-2.5 bg-emerald-650 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/10 transition-all cursor-pointer"
+                                >
+                                  <Check size={14} /> Confirmar Realização
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (window.confirm('Deseja desmarcar/excluir este agendamento?')) {
+                                      try {
+                                        const updatedFicha = {
+                                          ...selectedFicha,
+                                          proximaVisitaData: '',
+                                          proximaVisitaHora: '',
+                                          proximaVisitaObservacoes: ''
+                                        };
+                                        await saveFichaAtendimento(updatedFicha);
+                                        setSelectedFicha(updatedFicha);
+                                        setFichas(fichas.map(f => f.id === selectedFicha.id ? updatedFicha : f));
+                                        alert('Agendamento excluído.');
+                                      } catch (error) {
+                                        alert('Erro ao desmarcar.');
+                                      }
+                                    }
+                                  }}
+                                  className="py-2.5 px-4 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                  Desmarcar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-slate-50/50 p-6 rounded-2xl text-center border border-dashed border-slate-100 flex flex-col items-center justify-center">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma visita agendada pendente</p>
+                              {!isQuickScheduling && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsQuickScheduling(true);
+                                  }}
+                                  className="mt-3 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 font-black uppercase tracking-wider py-1.5 px-3 rounded-lg transition border border-amber-100 cursor-pointer"
+                                >
+                                  + Agendar Visita
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {isQuickScheduling && (
+                            <motion.form
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                if (!quickVisitData.date) {
+                                  alert("Agende uma data válida.");
+                                  return;
+                                }
+                                try {
+                                  const updatedFicha = {
+                                    ...selectedFicha,
+                                    proximaVisitaData: quickVisitData.date,
+                                    proximaVisitaHora: quickVisitData.time || '',
+                                    proximaVisitaObservacoes: quickVisitData.obs || ''
+                                  };
+                                  await saveFichaAtendimento(updatedFicha);
+                                  setSelectedFicha(updatedFicha);
+                                  setFichas(fichas.map(f => f.id === selectedFicha.id ? updatedFicha : f));
+                                  setIsQuickScheduling(false);
+                                  setQuickVisitData({ date: '', time: '', obs: '' });
+                                  alert('Visita agendada com sucesso!');
+                                } catch (error) {
+                                  alert('Erro ao agendar visita.');
+                                }
+                              }}
+                              className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 space-y-4"
+                            >
+                              <div className="flex justify-between items-center">
+                                <h5 className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Novo Agendamento</h5>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsQuickScheduling(false)}
+                                  className="text-amber-500 hover:text-amber-750 text-xs font-black uppercase cursor-pointer"
+                                >
+                                  Fechar
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-[9px] font-black text-amber-700 uppercase mb-1">Data da Visita</label>
+                                  <input
+                                    type="date"
+                                    required
+                                    value={quickVisitData.date}
+                                    onChange={(e) => setQuickVisitData({ ...quickVisitData, date: e.target.value })}
+                                    className="w-full text-xs p-2.5 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-black text-amber-700 uppercase mb-1">Horário</label>
+                                  <input
+                                    type="time"
+                                    value={quickVisitData.time}
+                                    onChange={(e) => setQuickVisitData({ ...quickVisitData, time: e.target.value })}
+                                    className="w-full text-xs p-2.5 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[9px] font-black text-amber-700 uppercase mb-1">Observações do Agendamento</label>
+                                <textarea
+                                  rows={2}
+                                  placeholder="Motivo da visita domiciliar..."
+                                  value={quickVisitData.obs}
+                                  onChange={(e) => setQuickVisitData({ ...quickVisitData, obs: e.target.value })}
+                                  className="w-full text-xs p-3 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 focus:outline-none"
+                                />
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsQuickScheduling(false)}
+                                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-amber-100 text-amber-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="submit"
+                                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                >
+                                  Agendar e Salvar
+                                </button>
+                              </div>
+                            </motion.form>
+                          )}
+                        </div>
+
                         {/* 🌟 EVOLUÇÕES CONTINUADAS (HISTÓRICO DE PROGRESSO E ACOMPANHAMENTO) */}
                         <div className="border-t border-slate-100 pt-6 mt-6 space-y-4">
                           <div className="flex justify-between items-center mb-1">
@@ -1052,6 +1294,43 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                           onChange={(e) => setFormData({...formData, encaminhamentos: e.target.value})}
                           className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50 resize-none"
                         />
+                      </div>
+
+                      <div className="bg-amber-50/40 p-6 rounded-3xl border-2 border-dashed border-amber-200 space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Calendar className="text-amber-600" size={18} />
+                          <h4 className="text-xs font-black text-amber-850 uppercase tracking-wider">Agendar Visita Domiciliar (Opcional)</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Data da Próxima Visita</label>
+                            <input
+                              type="date"
+                              value={formData.proximaVisitaData || ''}
+                              onChange={(e) => setFormData({...formData, proximaVisitaData: e.target.value})}
+                              className="w-full text-xs p-3 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Horário Agendado</label>
+                            <input
+                              type="time"
+                              value={formData.proximaVisitaHora || ''}
+                              onChange={(e) => setFormData({...formData, proximaVisitaHora: e.target.value})}
+                              className="w-full text-xs p-3 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Observações do Agendamento</label>
+                          <textarea
+                            rows={2}
+                            placeholder="Descreva o motivo ou foco principal da visita domiciliar..."
+                            value={formData.proximaVisitaObservacoes || ''}
+                            onChange={(e) => setFormData({...formData, proximaVisitaObservacoes: e.target.value})}
+                            className="w-full text-xs p-3 rounded-xl border border-amber-100 bg-white font-bold text-slate-600 outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
                       </div>
 
                       <div className="flex gap-4 pt-4 sticky bottom-0 bg-white pb-2">

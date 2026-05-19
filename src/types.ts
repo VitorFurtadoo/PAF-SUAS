@@ -57,6 +57,7 @@ export interface HistoryEntry {
 
 export interface PAFData {
   id?: string;
+  isFicha?: boolean;
   numeroPlano: string;
   isDraft?: boolean;
   deletedAt?: string;
@@ -251,6 +252,10 @@ export interface FichaAtendimento {
   encaminhamentos?: string;
   descricaoEncaminhamento?: string;
   evolucoes?: EvolucaoAtendimento[];
+  proximaVisitaData?: string;
+  proximaVisitaHora?: string;
+  proximaVisitaObservacoes?: string;
+  visitasHistory?: any[];
   createdAt: any;
   updatedAt?: any;
 }
