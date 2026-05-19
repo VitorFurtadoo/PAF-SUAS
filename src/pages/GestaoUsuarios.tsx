@@ -56,7 +56,7 @@ export default function GestaoUsuarios() {
   useEffect(() => {
     fetchUsers();
     
-    if (isAdmin) {
+    if (isAdmin || isCoordinator) {
       const unsubscribeNotices = getNotices(false, (data) => {
         setNotices(data);
       });
@@ -206,7 +206,7 @@ export default function GestaoUsuarios() {
         </p>
       </header>
 
-      {isAdmin && (
+      {(isAdmin || isCoordinator) && (
         <div className="mb-6 flex flex-wrap p-1 bg-slate-100 rounded-2xl w-fit">
           <button
             onClick={() => setActiveTab('network')}
@@ -216,18 +216,20 @@ export default function GestaoUsuarios() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Gestão da Rede
+            {isAdmin ? 'Gestão da Rede' : 'Sua Equipe'}
           </button>
-          <button
-            onClick={() => setActiveTab('admins')}
-            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              activeTab === 'admins' 
-                ? 'bg-white text-red-600 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Administradores
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('admins')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                activeTab === 'admins' 
+                  ? 'bg-white text-red-600 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Administradores
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('notices')}
             className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -241,7 +243,7 @@ export default function GestaoUsuarios() {
         </div>
       )}
 
-      {activeTab === 'notices' && isAdmin ? (
+      {activeTab === 'notices' && (isAdmin || isCoordinator) ? (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-black text-slate-800">Meus Avisos</h2>
@@ -279,16 +281,18 @@ export default function GestaoUsuarios() {
                        notice.type === 'ACHIEVEMENT' ? <Sparkles size={20} /> :
                        <Bell size={20} />}
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2">
                       <button 
                         onClick={() => handleEditNotice(notice)}
-                        className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
+                        className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all shadow-sm border border-slate-100"
+                        title="Editar aviso"
                       >
                         <Edit2 size={16} />
                       </button>
                       <button 
                         onClick={() => handleDeleteNotice(notice.id!)}
-                        className="p-2 bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-900 rounded-xl transition-all"
+                        className="p-2 bg-red-50 hover:bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm border border-red-100"
+                        title="Excluir aviso"
                       >
                         <Trash2 size={16} />
                       </button>

@@ -603,6 +603,7 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
       [`UNIDADE CRAS: ${data.unidadeCras || '-'}`],
       [`DATA DO ATENDIMENTO: ${data.dataAtendimento.split('-').reverse().join('/')}`],
       [`TÉCNICO RESPONSÁVEL: ${data.tecnicoNome || '-'}`],
+      ...(data.coAutorNome ? [[`CO-AUTOR DO ATENDIMENTO: ${data.coAutorNome}`]] : [])
     ]
   });
 
@@ -641,9 +642,31 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
     theme: 'grid',
     styles: { fontSize: 10, cellPadding: 10, lineColor: [226, 232, 240], lineWidth: 0.5 },
     headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
-    head: [['IV. DESCRIÇÃO / EVOLUÇÃO']],
+    head: [['IV. DESCRIÇÃO / EVOLUÇÃO INICIAL']],
     body: [[{ content: data.descricao || '-', styles: { minCellHeight: 120, halign: 'justify' } }]]
   });
+
+  // Section: Continued Evolutions
+  if (data.evolucoes && data.evolucoes.length > 0) {
+    const evolBody = data.evolucoes.map((evol, index) => {
+      let content = `Evolução #${index + 1} - ${evol.data.split('-').reverse().join('/')}\n`;
+      content += `Responsável: ${evol.tecnicoNome}\n\n`;
+      content += `${evol.descricao}`;
+      if (evol.encaminhamentos) {
+        content += `\n\nEncaminhamentos / Orientações:\n${evol.encaminhamentos}`;
+      }
+      return content;
+    });
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 15,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 8, lineColor: [226, 232, 240], lineWidth: 0.5 },
+      headStyles: { fillColor: brandSecondary, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+      head: [['V. EVOLUÇÕES CONTINUADAS (HISTÓRICO de ACOMPANHAMENTO)']],
+      body: evolBody.map(text => [{ content: text, styles: { halign: 'justify', fillColor: [250, 250, 250] } }])
+    });
+  }
 
   // Section: Referrals
   if (data.descricaoEncaminhamento || data.encaminhamentos) {
@@ -651,8 +674,8 @@ export const generateFichaAtendimentoPdf = async (data: FichaAtendimento) => {
       startY: (doc as any).lastAutoTable.finalY + 15,
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 8, lineColor: [226, 232, 240], lineWidth: 0.5 },
-      headStyles: { fillColor: brandSecondary, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
-      head: [['V. ENCAMINHAMENTOS E ORIENTAÇÕES']],
+      headStyles: { fillColor: [71, 85, 105], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+      head: [['VI. ENCAMINHAMENTOS E ORIENTAÇÕES']],
       body: [
         [{ content: `Especifique o Encaminhamento: ${data.descricaoEncaminhamento || 'N/A'}`, styles: { fillColor: lightBg } }],
         [{ content: `Encaminhamentos / Orientações Efetuadas: ${data.encaminhamentos || 'N/A'}`, styles: { fillColor: lightBg } }]

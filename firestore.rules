@@ -61,7 +61,7 @@ service cloud.firestore {
              data.unidadeCras is string && data.unidadeCras.size() <= 200 &&
              data.dataAtendimento is string && data.dataAtendimento.size() <= 100 &&
              data.responsavelFamiliar is string && data.responsavelFamiliar.size() <= 500 &&
-             data.tecnicoId is string && data.tecnicoId == request.auth.uid &&
+             data.tecnicoId is string && data.tecnicoId.size() <= 128 &&
              data.tecnicoNome is string && data.tecnicoNome.size() <= 500 &&
              data.tipoAtendimento is list && data.tipoAtendimento.size() > 0 &&
              data.descricao is string && data.descricao.size() <= 50000 &&
@@ -134,6 +134,7 @@ service cloud.firestore {
     match /fichas_atendimento/{fichaId} {
       allow get: if isSignedIn() && (
         resource.data.tecnicoId == request.auth.uid ||
+        (resource.data.coAutorId != null && resource.data.coAutorId == request.auth.uid) ||
         isAdmin() ||
         (getUserRole() in ['ADMIN', 'COORDENADOR', 'TECNICO'] && resource.data.unidadeCras == getUserUnit())
       );
@@ -146,14 +147,26 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && isValidId(fichaId)
                     && isValidFicha(incoming())
+                    && incoming().tecnicoId == request.auth.uid
                     && (isAdmin() || getUserRole() == 'ADMIN' || incoming().unidadeCras == getUserUnit())
                     && incoming().createdAt == request.time;
 
       allow update: if isSignedIn()
-                    && (isAdmin() || resource.data.tecnicoId == request.auth.uid)
+                    && (
+                      isAdmin() || 
+                      getUserRole() == 'COORDENADOR' || 
+                      resource.data.tecnicoId == request.auth.uid || 
+                      (resource.data.coAutorId != null && resource.data.coAutorId == request.auth.uid)
+                    )
                     && isValidFicha(incoming())
                     && incoming().tecnicoId == existing().tecnicoId
                     && incoming().createdAt == existing().createdAt;
+
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        getUserRole() == 'COORDENADOR' ||
+        resource.data.tecnicoId == request.auth.uid
+      );
     }
 
     match /acoesCras/{acaoId} {
@@ -192,10 +205,10 @@ service cloud.firestore {
     }
 
     match /notices/{noticeId} {
-      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.active == true));
-      allow create: if isAdmin() && isValidNotice(incoming()) && incoming().createdAt == request.time;
-      allow update: if isAdmin() && isValidNotice(incoming()) && (incoming().updatedAt == request.time || incoming().updatedAt == existing().updatedAt);
-      allow delete: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || getUserRole() == 'COORDENADOR' || (resource != null && resource.data.active == true));
+      allow create: if (isAdmin() || getUserRole() == 'COORDENADOR') && isValidNotice(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isAdmin() || getUserRole() == 'COORDENADOR') && isValidNotice(incoming()) && (incoming().updatedAt == request.time || incoming().updatedAt == existing().updatedAt);
+      allow delete: if isAdmin() || getUserRole() == 'COORDENADOR';
     }
   }
 }

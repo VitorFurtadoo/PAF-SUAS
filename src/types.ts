@@ -222,6 +222,15 @@ export interface Suggestion {
   createdAt: any;
 }
 
+export interface EvolucaoAtendimento {
+  id: string;
+  data: string;
+  tecnicoId: string;
+  tecnicoNome: string;
+  descricao: string;
+  encaminhamentos?: string;
+}
+
 export interface FichaAtendimento {
   id?: string;
   unidadeCras: string;
@@ -232,6 +241,8 @@ export interface FichaAtendimento {
   cpf?: string;
   tecnicoId: string;
   tecnicoNome: string;
+  coAutorId?: string;
+  coAutorNome?: string;
   tipoAtendimento: string[];
   tipoAtendimentoOutro?: string;
   descricao: string;
@@ -239,6 +250,7 @@ export interface FichaAtendimento {
   formaAcesso?: string;
   encaminhamentos?: string;
   descricaoEncaminhamento?: string;
+  evolucoes?: EvolucaoAtendimento[];
   createdAt: any;
   updatedAt?: any;
 }

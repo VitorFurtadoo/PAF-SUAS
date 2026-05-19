@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
 import { getFichasAtendimento, saveFichaAtendimento, deleteFichaAtendimento } from '../services/fichaAtendimentoService';
+import { getTeclicosPorUnidade } from '../services/userService';
 import { generateFichaAtendimentoPdf } from '../utils/generatePdf';
-import type { FichaAtendimento } from '../types';
+import type { FichaAtendimento, UserProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface FichasAtendimentoProps {
@@ -34,12 +35,37 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('Todos');
   const [selectedCras, setSelectedCras] = useState('todos');
+  const [tecnicos, setTecnicos] = useState<UserProfile[]>([]);
+  
+  // States for dynamic evolution/progress tracking
+  const [newEvolDescription, setNewEvolDescription] = useState('');
+  const [newEvolEncaminhamentos, setNewEvolEncaminhamentos] = useState('');
+  const [newEvolDate, setNewEvolDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isAddingEvol, setIsAddingEvol] = useState(false);
+  const [evolSaving, setEvolSaving] = useState(false);
 
   useEffect(() => {
     if (defaultCreate) {
       handleOpenPanel('create');
     }
   }, [defaultCreate]);
+
+  useEffect(() => {
+    const loadTecnicos = async () => {
+      try {
+        if (userProfile?.role === 'ADMIN') {
+          const uList = await getTeclicosPorUnidade('');
+          setTecnicos(uList.filter(u => u.id !== user?.uid));
+        } else if (userProfile?.unidadeCras) {
+          const uList = await getTeclicosPorUnidade(userProfile.unidadeCras);
+          setTecnicos(uList.filter(u => u.id !== user?.uid));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar técnicos para co-autor", error);
+      }
+    };
+    loadTecnicos();
+  }, [userProfile?.unidadeCras, userProfile?.role, user?.uid]);
 
   // Form states
   const [formData, setFormData] = useState<Partial<FichaAtendimento>>({
@@ -48,6 +74,8 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     tipoAtendimento: [],
     responsavelFamiliar: '',
     cpf: '',
+    coAutorId: '',
+    coAutorNome: '',
     demandaInicial: '',
     formaAcesso: '',
     tipoAtendimentoOutro: '',
@@ -118,6 +146,8 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
         tipoAtendimentoOutro: '',
         responsavelFamiliar: '',
         cpf: '',
+        coAutorId: '',
+        coAutorNome: '',
         demandaInicial: '',
         formaAcesso: '',
         descricao: '',
@@ -159,8 +189,8 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
       const dataToSave = {
         ...formData,
         unidadeCras: userProfile?.role === 'ADMIN' ? formData.unidadeCras : (userProfile?.unidadeCras || formData.unidadeCras),
-        tecnicoId: user.uid,
-        tecnicoNome: userProfile?.name || 'Técnico',
+        tecnicoId: selectedFicha?.tecnicoId || user.uid,
+        tecnicoNome: selectedFicha?.tecnicoNome || userProfile?.name || 'Técnico',
       } as FichaAtendimento;
 
       await saveFichaAtendimento(dataToSave);
@@ -183,9 +213,80 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
     }
   };
 
+  const handleAddEvolution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFicha || !user) return;
+    if (!newEvolDescription.trim()) {
+      alert("Por favor, preencha a descrição do andamento/evolução.");
+      return;
+    }
+
+    setEvolSaving(true);
+    try {
+      const newEpolVal = {
+        id: Math.random().toString(36).substring(2, 11),
+        data: newEvolDate,
+        tecnicoId: user.uid,
+        tecnicoNome: userProfile?.name || 'Técnico',
+        descricao: newEvolDescription.trim(),
+        encaminhamentos: newEvolEncaminhamentos.trim() || undefined
+      };
+
+      const updatedEvolucoes = [...(selectedFicha.evolucoes || []), newEpolVal];
+      const updatedFicha: FichaAtendimento = {
+        ...selectedFicha,
+        evolucoes: updatedEvolucoes
+      };
+
+      await saveFichaAtendimento(updatedFicha);
+      setSelectedFicha(updatedFicha);
+      setNewEvolDescription('');
+      setNewEvolEncaminhamentos('');
+      setNewEvolDate(new Date().toISOString().split('T')[0]);
+      setIsAddingEvol(false);
+      
+      // Update local state list
+      setFichas(fichas.map(f => f.id === selectedFicha.id ? updatedFicha : f));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar evolução.");
+    } finally {
+      setEvolSaving(false);
+    }
+  };
+
+  const handleDeleteEvolution = async (evolId: string) => {
+    if (!selectedFicha) return;
+    if (!window.confirm("Deseja realmente remover esta evolução?")) return;
+
+    try {
+      const updatedEvolucoes = (selectedFicha.evolucoes || []).filter(e => e.id !== evolId);
+      const updatedFicha: FichaAtendimento = {
+        ...selectedFicha,
+        evolucoes: updatedEvolucoes
+      };
+
+      await saveFichaAtendimento(updatedFicha);
+      setSelectedFicha(updatedFicha);
+      setFichas(fichas.map(f => f.id === selectedFicha.id ? updatedFicha : f));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao remover evolução.");
+    }
+  };
+
   const filteredFichas = fichas.filter(f => {
+    // Se o usuário logado for técnico, só pode visualizar as fichas criadas por ele
+    // ou do qual ele é co-autor (a não ser que seja admin ou coordenador)
+    if (userProfile?.role === 'TECNICO') {
+      const isCreator = f.tecnicoId === user?.uid;
+      const isCoAuthor = f.coAutorId === user?.uid;
+      if (!isCreator && !isCoAuthor) return false;
+    }
+
     const matchesSearch = f.responsavelFamiliar.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          f.tecnicoNome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (f.coAutorNome && f.coAutorNome.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (f.cpf && f.cpf.includes(searchTerm));
     
     const fichaTypes = Array.isArray(f.tipoAtendimento) ? f.tipoAtendimento : [f.tipoAtendimento];
@@ -283,13 +384,15 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
               className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all border border-slate-100 relative overflow-hidden cursor-pointer"
             >
               <div className="absolute top-3 right-3 flex gap-1 z-10" onClick={(e) => e.stopPropagation()}>
-                <button 
-                  onClick={() => handleOpenPanel('edit', ficha)}
-                  className="p-2 bg-slate-50 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
-                  title="Editar"
-                >
-                  <Edit2 size={16} />
-                </button>
+                {(ficha.tecnicoId === user?.uid || userProfile?.role === 'ADMIN' || userProfile?.role === 'COORDENADOR') && (
+                  <button 
+                    onClick={() => handleOpenPanel('edit', ficha)}
+                    className="p-2 bg-slate-50 text-brand-primary hover:bg-brand-primary hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+                    title="Editar"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                )}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -300,13 +403,18 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                 >
                   <Download size={16} />
                 </button>
-                <button 
-                  onClick={() => handleDelete(ficha.id!)}
-                  className="p-2 bg-slate-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
-                  title="Excluir"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {(ficha.tecnicoId === user?.uid || userProfile?.role === 'ADMIN' || userProfile?.role === 'COORDENADOR') && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(ficha.id!);
+                    }}
+                    className="p-2 bg-slate-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+                    title="Excluir"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-start gap-4 mb-4">
@@ -337,6 +445,12 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                         {t}
                       </span>
                     ))}
+                    {ficha.evolucoes && ficha.evolucoes.length > 0 && (
+                      <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tight bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                        {ficha.evolucoes.length} {ficha.evolucoes.length === 1 ? 'Evolução' : 'Evoluções'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -348,13 +462,20 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
               </div>
 
               <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 uppercase">
-                    {ficha.tecnicoNome.charAt(0)}
+                <div className="flex flex-col gap-1 items-start">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 uppercase">
+                      {ficha.tecnicoNome.charAt(0)}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                      {ficha.tecnicoNome}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                    {ficha.tecnicoNome}
-                  </span>
+                  {ficha.coAutorNome && (
+                    <span className="text-[8px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded border border-sky-100 font-bold max-w-full truncate uppercase tracking-tight">
+                      Co-autor: {ficha.coAutorNome}
+                    </span>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -461,6 +582,11 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                          <span className="bg-slate-100 text-slate-500 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">
                            Técnico: {selectedFicha.tecnicoNome}
                          </span>
+                         {selectedFicha.coAutorNome && (
+                           <span className="bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                             Co-autor: {selectedFicha.coAutorNome}
+                           </span>
+                         )}
                       </div>
 
                       <div className="space-y-6">
@@ -493,6 +619,177 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                             </div>
                           </div>
                         )}
+
+                        {/* 🌟 EVOLUÇÕES CONTINUADAS (HISTÓRICO DE PROGRESSO E ACOMPANHAMENTO) */}
+                        <div className="border-t border-slate-100 pt-6 mt-6 space-y-4">
+                          <div className="flex justify-between items-center mb-1">
+                            <h4 className="text-sm font-black text-brand-secondary uppercase tracking-widest flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" /> Histórico de Evoluções e Acompanhamento
+                            </h4>
+                            {!isAddingEvol && (
+                              <button
+                                type="button"
+                                onClick={() => setIsAddingEvol(true)}
+                                className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black uppercase tracking-wider py-1.5 px-3 rounded-lg transition border border-indigo-100"
+                              >
+                                + Nova Evolução
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Evolution entries timeline */}
+                          {(!selectedFicha.evolucoes || selectedFicha.evolucoes.length === 0) ? (
+                            <div className="bg-slate-50/50 p-6 rounded-2xl text-center border border-dashed border-slate-100">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma evolução registrada para este cidadão</p>
+                              <p className="text-[10px] text-slate-400 font-medium mt-1">Utilize o andamento do atendimento para adicionar evoluções contínuas.</p>
+                            </div>
+                          ) : (
+                            <div className="relative pl-4 border-l-2 border-slate-100 space-y-6 py-2">
+                              {selectedFicha.evolucoes.map((evol, index) => {
+                                const canDeleteEvol = user?.uid === evol.tecnicoId || userProfile?.role === 'ADMIN' || userProfile?.role === 'COORDENADOR';
+                                return (
+                                  <div key={evol.id} className="relative group/item">
+                                    {/* Circle marker */}
+                                    <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-indigo-500 ring-4 ring-white" />
+                                    
+                                    <div className="bg-slate-50 hover:bg-slate-50/80 p-5 rounded-2xl border border-slate-100 transition-all">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block mb-0.5">
+                                            Evolução #{index + 1}
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-700">
+                                              {evol.data.split('-').reverse().join('/')}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-bold">•</span>
+                                            <span className="text-[10px] bg-slate-200/50 text-slate-500 font-extrabold px-1.5 py-0.5 rounded uppercase">
+                                              Téc: {evol.tecnicoNome}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {canDeleteEvol && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteEvolution(evol.id)}
+                                            className="text-slate-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50/50 transition opacity-0 group-hover/item:opacity-100"
+                                            title="Excluir evolução"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      <p className="text-xs text-slate-600 font-semibold leading-relaxed whitespace-pre-wrap">
+                                        {evol.descricao}
+                                      </p>
+
+                                      {evol.encaminhamentos && (
+                                        <div className="mt-3 pt-3 border-t border-slate-200/50">
+                                          <span className="text-[9px] font-black text-slate-400 block uppercase tracking-widest mb-1">Encaminhamentos / Orientações:</span>
+                                          <p className="text-[11px] font-medium text-slate-500 italic bg-white p-2.5 rounded-lg border border-slate-100">
+                                            {evol.encaminhamentos}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Quick Add Evolution Form */}
+                          <AnimatePresence>
+                            {isAddingEvol && (
+                              <motion.form
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                onSubmit={handleAddEvolution}
+                                className="bg-indigo-50/50 border border-indigo-100 p-5 rounded-2xl space-y-4 overflow-hidden mt-4 text-left"
+                              >
+                                <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2">
+                                  <span className="text-xs font-black text-indigo-700 uppercase tracking-widest block">Novo Registro de Evolução</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNewEvolDescription('');
+                                      setNewEvolEncaminhamentos('');
+                                      setIsAddingEvol(false);
+                                    }}
+                                    className="text-indigo-400 hover:text-indigo-600 text-xs font-black uppercase"
+                                  >
+                                    Fechar
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[9px] font-black text-indigo-700 uppercase mb-1">Responsável</label>
+                                    <input
+                                      type="text"
+                                      disabled
+                                      value={userProfile?.name || 'Técnico'}
+                                      className="w-full text-xs p-2.5 rounded-xl border border-indigo-100 bg-white/70 font-bold text-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[9px] font-black text-indigo-700 uppercase mb-1">Data da Evolução</label>
+                                    <input
+                                      type="date"
+                                      required
+                                      value={newEvolDate}
+                                      onChange={(e) => setNewEvolDate(e.target.value)}
+                                      className="w-full text-xs p-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-slate-600 focus:outline-indigo-300"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] font-black text-indigo-700 uppercase mb-1">Descrição do Andamento / Evolução <span className="text-red-500">*</span></label>
+                                  <textarea
+                                    required
+                                    rows={4}
+                                    placeholder="Descreva o andamento do atendimento continuado, nova escuta ou desdobramentos..."
+                                    value={newEvolDescription}
+                                    onChange={(e) => setNewEvolDescription(e.target.value)}
+                                    className="w-full text-xs p-3 rounded-xl border border-indigo-100 bg-white font-bold text-slate-600 placeholder-indigo-300 outline-none focus:ring-1 focus:ring-indigo-400"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] font-black text-indigo-700 uppercase mb-1">Novos Encaminhamentos / Orientações (Opcional)</label>
+                                  <textarea
+                                    rows={2}
+                                    placeholder="Descreva se realizou algum novo encaminhamento ou orientação nesta evolução..."
+                                    value={newEvolEncaminhamentos}
+                                    onChange={(e) => setNewEvolEncaminhamentos(e.target.value)}
+                                    className="w-full text-xs p-3 rounded-xl border border-indigo-100 bg-white font-bold text-slate-600 placeholder-indigo-300 outline-none focus:ring-1 focus:ring-indigo-400"
+                                  />
+                                </div>
+
+                                <div className="flex gap-2 justify-end pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsAddingEvol(false)}
+                                    className="px-4 py-2 bg-white hover:bg-slate-100 border border-indigo-100 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={evolSaving}
+                                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md shadow-indigo-600/10 transition-all flex items-center gap-1.5"
+                                  >
+                                    {evolSaving ? 'Salvando...' : 'Adicionar e Salvar'}
+                                  </button>
+                                </div>
+                              </motion.form>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="pt-8 flex gap-3">
@@ -502,18 +799,22 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                          >
                            <Download size={18} /> Exportar PDF
                          </button>
-                         <button
-                           onClick={() => setPanelMode('edit')}
-                           className="flex-1 bg-brand-secondary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-brand-secondary/20"
-                         >
-                           <Edit2 size={18} /> Editar Registro
-                         </button>
-                         <button
-                           onClick={() => handleDelete(selectedFicha.id!)}
-                           className="px-6 bg-rose-50 text-rose-500 rounded-2xl active:scale-95 transition border border-rose-100 hover:bg-rose-500 hover:text-white"
-                         >
-                           <Trash2 size={18} />
-                         </button>
+                         {(selectedFicha.tecnicoId === user?.uid || userProfile?.role === 'ADMIN' || userProfile?.role === 'COORDENADOR') && (
+                           <button
+                             onClick={() => setPanelMode('edit')}
+                             className="flex-1 bg-brand-secondary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition shadow-lg shadow-brand-secondary/20"
+                           >
+                             <Edit2 size={18} /> Editar Registro
+                           </button>
+                         )}
+                         {(selectedFicha.tecnicoId === user?.uid || userProfile?.role === 'ADMIN' || userProfile?.role === 'COORDENADOR') && (
+                           <button
+                             onClick={() => handleDelete(selectedFicha.id!)}
+                             className="px-6 bg-rose-50 text-rose-500 rounded-2xl active:scale-95 transition border border-rose-100 hover:bg-rose-500 hover:text-white"
+                           >
+                             <Trash2 size={18} />
+                           </button>
+                         )}
                       </div>
                     </div>
                   ) : (
@@ -586,6 +887,28 @@ export default function FichasAtendimento({ defaultCreate = false }: FichasAtend
                             onChange={(e) => setFormData({...formData, cpf: maskCPF(e.target.value)})}
                             className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
                           />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Co-autor (Opcional - p/ visualizar preenchimento)</label>
+                          <select
+                            value={formData.coAutorId || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const selectedTech = tecnicos.find(t => t.id === val);
+                              setFormData({
+                                ...formData,
+                                coAutorId: val || undefined,
+                                coAutorNome: selectedTech ? selectedTech.name : undefined
+                              });
+                            }}
+                            className="w-full p-4 rounded-2xl border-2 border-slate-50 focus:border-brand-primary outline-none transition-all font-bold text-slate-600 bg-slate-50"
+                          >
+                            <option value="">Nenhum</option>
+                            {tecnicos.map((tech) => (
+                              <option key={tech.id} value={tech.id}>{tech.name} ({tech.role})</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
 

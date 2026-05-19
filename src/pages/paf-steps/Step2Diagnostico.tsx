@@ -86,11 +86,11 @@ export default function Step2Diagnostico({ data, handleChange, toggleVulnerabili
             className="mt-4 p-4 bg-white border border-slate-200 rounded-lg"
           >
             <label className="block text-xs font-bold text-slate-500 mb-1">Especifique as outras vulnerabilidades:</label>
-            <input 
-              type="text" 
+            <textarea 
               value={data.vulnerabilidadesOutros || ''} 
               onChange={e => handleChange('vulnerabilidadesOutros', e.target.value)}
-              className="w-full p-2.5 rounded-lg border border-slate-200 bg-white"
+              className="w-full p-2.5 rounded-lg border border-slate-200 bg-white min-h-[100px] text-sm"
+              placeholder="Descreva as outras vulnerabilidades aqui..."
             />
           </motion.div>
         )}
